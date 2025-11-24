@@ -27,8 +27,6 @@ RUN mkdir -p /app/data
 # 设置应用内的环境变量默认值
 # 指向 /app/data 目录，确保数据库文件持久化
 ENV SQLALCHEMY_DATABASE_URI="sqlite:////app/data/database.db"
-# 默认 Secret Key，建议运行时覆盖
-ENV SECRET_KEY="change_this_via_env_var_in_prod"
 
 # 暴露 5000 端口
 EXPOSE 5000
