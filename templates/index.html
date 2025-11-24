@@ -7,39 +7,58 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .cmd-font { font-family: "JetBrains Mono", Consolas, monospace; font-size: 0.85rem; }
-        .group-divider { border-bottom: 2px solid #e9ecef; margin-top: 35px; margin-bottom: 20px; padding-bottom: 8px; font-weight: 600; display: flex; align-items: center; }
-        .code-block { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; position: relative; margin-top: 10px; }
-        .code-content { margin: 0; padding: 12px 40px 12px 12px; white-space: pre-wrap; word-wrap: break-word; color: #d63384; }
-        .btn-copy-abs { position: absolute; top: 5px; right: 5px; background: transparent; border: none; color: #6c757d; }
+
+        /* === 紧凑化调整 1: 缩小分组标题间距 === */
+        .group-divider {
+            border-bottom: 1px solid #e9ecef;
+            margin-top: 20px;    /* 原来是 35px */
+            margin-bottom: 10px; /* 原来是 20px */
+            padding-bottom: 5px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            color: #495057;
+        }
+
+        /* === 紧凑化调整 2: 代码块样式 === */
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            position: relative;
+            margin-top: 5px; /* 原来是 10px */
+        }
+        .code-content {
+            margin: 0;
+            /* 缩小内边距: 上右下左 */
+            padding: 8px 30px 8px 8px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: #d63384;
+            line-height: 1.4; /* 行高稍微调小 */
+        }
+        .btn-copy-abs { position: absolute; top: 2px; right: 2px; background: transparent; border: none; color: #adb5bd; padding: 2px 6px; }
+        .btn-copy-abs:hover { color: #0d6efd; }
     </style>
 </head>
 <body class="bg-light">
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-3 shadow-sm py-2">
     <div class="container">
-        <a class="navbar-brand" href="/"><i class="fas fa-terminal me-2"></i>CMD Manager</a>
-
+        <a class="navbar-brand fs-6" href="/"><i class="fas fa-terminal me-2"></i>CMD Manager</a>
         <div class="d-flex align-items-center">
-            <a href="{{ url_for('manage_groups') }}" class="btn btn-outline-light btn-sm me-3">
-                <i class="fas fa-layer-group"></i> 分组管理
+            <a href="{{ url_for('manage_groups') }}" class="btn btn-outline-light btn-sm me-3" style="font-size: 0.8rem;">
+                <i class="fas fa-layer-group"></i> 分组
             </a>
-
             <div class="dropdown">
-                <button class="btn btn-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <button class="btn btn-secondary btn-sm dropdown-toggle py-0" type="button" data-bs-toggle="dropdown" style="font-size: 0.8rem;">
                     <i class="fas fa-user-circle me-1"></i> {{ current_user.username }}
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li>
-                        <a class="dropdown-item" href="{{ url_for('change_password') }}">
-                            <i class="fas fa-key me-2 text-muted"></i>修改密码
-                        </a>
-                    </li>
+                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                    <li><a class="dropdown-item small" href="{{ url_for('change_password') }}">修改密码</a></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li>
-                        <a class="dropdown-item text-danger" href="{{ url_for('logout') }}">
-                            <i class="fas fa-sign-out-alt me-2"></i>退出登录
-                        </a>
-                    </li>
+                    <li><a class="dropdown-item small text-danger" href="{{ url_for('logout') }}">退出登录</a></li>
                 </ul>
             </div>
         </div>
@@ -50,22 +69,22 @@
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show">{{ message }} <button class="btn-close" data-bs-dismiss="alert"></button></div>
+                <div class="alert alert-{{ category }} alert-dismissible fade show py-1 small">{{ message }} <button class="btn-close btn-sm p-2" data-bs-dismiss="alert"></button></div>
             {% endfor %}
         {% endif %}
     {% endwith %}
 
-    <div class="row g-3 mb-4">
-        <div class="col-md-8">
-            <form action="{{ url_for('index') }}" method="GET" class="input-group">
-                <input type="search" name="q" class="form-control" placeholder="搜索命令..." value="{{ search_query }}">
-                <button class="btn btn-primary" type="submit">搜索</button>
+    <div class="row g-2 mb-3">
+        <div class="col-md-9">
+            <form action="{{ url_for('index') }}" method="GET" class="input-group input-group-sm">
+                <input type="search" name="q" class="form-control" placeholder="搜索..." value="{{ search_query }}">
+                <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i></button>
                 {% if search_query %}<a href="/" class="btn btn-secondary">重置</a>{% endif %}
             </form>
         </div>
-        <div class="col-md-4 text-end">
-            <button class="btn btn-success w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#addModal">
-                <i class="fas fa-plus-circle"></i> 新增命令
+        <div class="col-md-3 text-end">
+            <button class="btn btn-success btn-sm w-100" data-bs-toggle="modal" data-bs-target="#addModal">
+                <i class="fas fa-plus-circle"></i> 新增
             </button>
         </div>
     </div>
@@ -74,15 +93,16 @@
         {% for group, commands in display_data %}
             <div class="group-divider">
                 <i class="far fa-folder-open me-2 text-warning"></i> {{ group.name }}
-                <span class="badge bg-secondary ms-2 rounded-pill" style="opacity: 0.7;">{{ commands|length }}</span>
+                <span class="badge bg-secondary ms-2 rounded-pill" style="opacity: 0.7; font-size: 0.7em;">{{ commands|length }}</span>
             </div>
-            <div class="row g-3">
+
+            <div class="row g-2">
                 {% for cmd in commands %}
-                <div class="col-lg-6 mb-3">
+                <div class="col-lg-6">
                     <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <h6 class="fw-bold text-dark mb-1">{{ cmd.title }}</h6>
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="fw-bold text-dark mb-0 small text-truncate" style="max-width: 80%;">{{ cmd.title }}</h6>
                                 <div>
                                     <button class="btn btn-sm btn-link text-primary p-0 me-2"
                                             data-bs-toggle="modal"
@@ -90,10 +110,11 @@
                                             data-id="{{ cmd.id }}"
                                             data-title="{{ cmd.title }}"
                                             data-content="{{ cmd.content }}"
-                                            data-group="{{ group.id }}">
+                                            data-group="{{ group.id }}"
+                                            style="font-size: 0.8rem;">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <a href="{{ url_for('delete_command', id=cmd.id) }}" class="text-danger small" onclick="return confirm('确认删除？')"><i class="fas fa-trash-alt"></i></a>
+                                    <a href="{{ url_for('delete_command', id=cmd.id) }}" class="text-danger p-0" style="font-size: 0.8rem;" onclick="return confirm('确认删除？')"><i class="fas fa-trash-alt"></i></a>
                                 </div>
                             </div>
                             <div class="code-block">
@@ -107,39 +128,38 @@
             </div>
         {% endfor %}
     {% else %}
-        <div class="text-center py-5 text-muted">暂无命令，请先创建分组或添加命令。</div>
+        <div class="text-center py-5 text-muted small">暂无数据</div>
     {% endif %}
 </div>
 
 <div class="modal fade" id="addModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">新增命令</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header py-2">
+                <h5 class="modal-title fs-6">新增命令</h5>
+                <button type="button" class="btn-close small" data-bs-dismiss="modal"></button>
             </div>
             <form action="{{ url_for('add_command') }}" method="POST">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">选择分组</label>
-                        <select name="group_id" class="form-select" required>
+                <div class="modal-body p-3">
+                    <div class="mb-2">
+                        <label class="form-label small mb-1">分组</label>
+                        <select name="group_id" class="form-select form-select-sm" required>
                             {% for g in all_groups %}
                             <option value="{{ g.id }}">{{ g.name }}</option>
                             {% endfor %}
                         </select>
-                        <div class="form-text">如果没有分组，请先点击顶部“管理分组”去创建。</div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">标题</label>
-                        <input type="text" name="title" class="form-control" required>
+                    <div class="mb-2">
+                        <label class="form-label small mb-1">标题</label>
+                        <input type="text" name="title" class="form-control form-control-sm" required>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">命令内容</label>
-                        <textarea name="content" class="form-control cmd-font" rows="5" required></textarea>
+                    <div class="mb-0">
+                        <label class="form-label small mb-1">内容</label>
+                        <textarea name="content" class="form-control form-control-sm cmd-font" rows="4" required></textarea>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-success">保存</button>
+                <div class="modal-footer py-1">
+                    <button type="submit" class="btn btn-success btn-sm">保存</button>
                 </div>
             </form>
         </div>
@@ -147,33 +167,33 @@
 </div>
 
 <div class="modal fade" id="editModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">编辑命令</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header py-2">
+                <h5 class="modal-title fs-6">编辑命令</h5>
+                <button type="button" class="btn-close small" data-bs-dismiss="modal"></button>
             </div>
             <form id="editForm" method="POST">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">分组</label>
-                        <select name="group_id" id="edit-group" class="form-select" required>
+                <div class="modal-body p-3">
+                    <div class="mb-2">
+                        <label class="form-label small mb-1">分组</label>
+                        <select name="group_id" id="edit-group" class="form-select form-select-sm" required>
                             {% for g in all_groups %}
                             <option value="{{ g.id }}">{{ g.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">标题</label>
-                        <input type="text" name="title" id="edit-title" class="form-control" required>
+                    <div class="mb-2">
+                        <label class="form-label small mb-1">标题</label>
+                        <input type="text" name="title" id="edit-title" class="form-control form-control-sm" required>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">命令内容</label>
-                        <textarea name="content" id="edit-content" class="form-control cmd-font" rows="5" required></textarea>
+                    <div class="mb-0">
+                        <label class="form-label small mb-1">内容</label>
+                        <textarea name="content" id="edit-content" class="form-control form-control-sm cmd-font" rows="4" required></textarea>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">更新</button>
+                <div class="modal-footer py-1">
+                    <button type="submit" class="btn btn-primary btn-sm">更新</button>
                 </div>
             </form>
         </div>
@@ -182,7 +202,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // 复制功能
     function copyCmd(btn, text) {
         navigator.clipboard.writeText(text).then(() => {
             btn.querySelector('i').className = 'fas fa-check text-success';
@@ -190,25 +209,13 @@
         });
     }
 
-    // 监听编辑模态框的打开事件，填充数据
     const editModal = document.getElementById('editModal');
     editModal.addEventListener('show.bs.modal', event => {
-        // 哪个按钮触发的
         const button = event.relatedTarget;
-
-        // 获取数据
-        const id = button.getAttribute('data-id');
-        const title = button.getAttribute('data-title');
-        const content = button.getAttribute('data-content');
-        const groupId = button.getAttribute('data-group');
-
-        // 填充表单
-        document.getElementById('edit-title').value = title;
-        document.getElementById('edit-content').value = content;
-        document.getElementById('edit-group').value = groupId;
-
-        // 动态修改 Form 的 Action 路径
-        document.getElementById('editForm').action = '/command/edit/' + id;
+        document.getElementById('edit-title').value = button.getAttribute('data-title');
+        document.getElementById('edit-content').value = button.getAttribute('data-content');
+        document.getElementById('edit-group').value = button.getAttribute('data-group');
+        document.getElementById('editForm').action = '/command/edit/' + button.getAttribute('data-id');
     });
 </script>
 </body>
