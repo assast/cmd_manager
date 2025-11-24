@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>命令管理面板</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .cmd-text { font-family: "JetBrains Mono", Consolas, monospace; font-size: 0.9rem; }
+        .group-header { border-bottom: 2px solid #dee2e6; padding-bottom: 5px; margin-top: 30px; margin-bottom: 15px; color: #495057; }
+        .btn-copy { cursor: pointer; }
+    </style>
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-dark mb-4">
+    <div class="container">
+        <a class="navbar-brand" href="{{ url_for('index') }}"><i class="fas fa-terminal me-2"></i>CMD Manager</a>
+        <a href="{{ url_for('logout') }}" class="btn btn-outline-secondary btn-sm">退出</a>
+    </div>
+</nav>
+
+<div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <form action="{{ url_for('index') }}" method="GET" class="d-flex gap-2">
+                <input class="form-control" type="search" name="q" placeholder="搜索命令、分组或描述..." value="{{ search_query }}">
+                <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i></button>
+                {% if search_query %}
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">清除</a>
+                {% endif %}
+            </form>
+        </div>
+        <div class="col-md-4 text-end mt-2 mt-md-0">
+            <button class="btn btn-success" type="button" data-bs-toggle="collapse" data-bs-target="#addForm">
+                <i class="fas fa-plus"></i> 新增命令
+            </button>
+        </div>
+    </div>
+
+    <div class="collapse mb-4" id="addForm">
+        <div class="card card-body shadow-sm border-success">
+            <form action="{{ url_for('add_command') }}" method="POST" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">分组</label>
+                    <input type="text" class="form-control" name="group" placeholder="如: Docker" list="groupOptions" required>
+                    <datalist id="groupOptions">
+                        {% for group in grouped_commands.keys() %}
+                            <option value="{{ group }}">
+                        {% endfor %}
+                    </datalist>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small text-muted">标题/简介</label>
+                    <input type="text" class="form-control" name="title" placeholder="如: 查看日志" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small text-muted">具体命令</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control cmd-text" name="content" placeholder="docker logs -f <name>" required>
+                        <button type="submit" class="btn btn-success">保存</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if grouped_commands %}
+        {% for group, commands in grouped_commands.items() %}
+            <h5 class="group-header"><i class="fas fa-folder text-warning me-2"></i>{{ group }}</h5>
+            <div class="row">
+                {% for cmd in commands %}
+                <div class="col-lg-4 col-md-6 mb-3">
+                    <div class="card h-100 shadow-sm border-0">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="fw-bold text-dark">{{ cmd.title }}</span>
+                                <a href="{{ url_for('delete_command', id=cmd.id) }}" class="text-danger small opacity-50 text-decoration-none" onclick="return confirm('确定删除?')"><i class="fas fa-trash"></i></a>
+                            </div>
+                            <div class="p-2 bg-light rounded border d-flex align-items-center justify-content-between">
+                                <span class="cmd-text text-secondary text-truncate me-2 w-100" title="{{ cmd.content }}">{{ cmd.content }}</span>
+                                <button class="btn btn-sm btn-outline-primary btn-copy border-0" onclick="copyText(this, '{{ cmd.content }}')">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="text-center py-5 text-muted bg-white rounded shadow-sm">
+            <i class="fas fa-box-open fa-3x mb-3 text-secondary opacity-25"></i>
+            <p>没有找到匹配的命令。</p>
+        </div>
+    {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    function copyText(btn, text) {
+        navigator.clipboard.writeText(text).then(function() {
+            const icon = btn.querySelector('i');
+            // 切换图标
+            icon.classList.remove('far', 'fa-copy');
+            icon.classList.add('fas', 'fa-check', 'text-success');
+
+            setTimeout(() => {
+                icon.classList.remove('fas', 'fa-check', 'text-success');
+                icon.classList.add('far', 'fa-copy');
+            }, 1500);
+        });
+    }
+</script>
+</body>
+</html>
