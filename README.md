@@ -1,4 +1,6 @@
-
+体验站点
+用户名：admin
+密码：N6dAIKhMARWbk1-N
 #### 2\. 运行容器 (生产模式)
 
 这是最完整的运行命令，包含数据持久化和密码配置：
@@ -22,8 +24,8 @@ docker run -d \
 **参数解释：**
 
   * `-v $(pwd)/cmd_data:/app/data`:  **最关键的一步**。它把容器里的 `/app/data` 映射到你电脑上的 `cmd_data` 文件夹。这样即使你删除了容器，你的 `database.db` 依然保存在你的电脑里，不会丢失。
-  * `-e ADMIN_PASSWORD="..."`: 设置管理员密码（应用之前的代码逻辑）。
-  * `-e SECRET_KEY="..."`: 设置防伪密钥，保证 Cookie 安全。
+  * `-e ADMIN_PASSWORD="..."`: 设置管理员密码。不填会自动随机一个，需要去日志找到登录密码
+  * `-e SECRET_KEY="..."`: 设置防伪密钥，保证 Cookie 安全。不填会默认一个固定值change_this_via_env_var_in_prod
 
 **界面示例：**
 ![](./static/WX20251124-140735@2x.png)
