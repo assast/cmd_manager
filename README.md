@@ -7,6 +7,14 @@
 # 先创建一个存放数据的文件夹
 mkdir -p cmd_data
 
+# 简单运行 用户默认admin 密码默认123456，进入界面后请尽快修改密码
+docker run -d \
+  --name my-cmd \
+  --restart always \
+  -p 5000:5000 \
+  -v $(pwd)/cmd_data:/app/data \
+  ghcr.io/assast/cmd_manager:latest
+  
 # 运行
 docker run -d \
   --name my-cmd \

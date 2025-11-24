@@ -55,7 +55,7 @@ def init_db():
     with app.app_context():
         db.create_all()
 
-        # 1. 初始化管理员
+        # 1. 初始化管理员 (保持原逻辑)
         if not User.query.first():
             admin_user = os.environ.get('ADMIN_USER', 'admin')
             admin_pass = os.environ.get('ADMIN_PASSWORD', '123456')
@@ -64,10 +64,52 @@ def init_db():
             db.session.add(User(username=admin_user, password_hash=hashed_pw))
             db.session.commit()
 
-        # 2. 初始化默认分组 (防止下拉框为空)
-        if not Group.query.first():
-            db.session.add(Group(name="默认分组"))
-            db.session.commit()
+        # ==========================================
+        # 2. 预置默认命令数据 (在这里修改你的内置命令)
+        # ==========================================
+        default_data = {
+            "常用命令": [
+                ("查看端口占用", "lsof -i :8080"),
+                ("解压 tar.gz", "tar -zxvf filename.tar.gz"),
+                ("查看磁盘空间", "df -h"),
+            ],
+            "Docker": [
+                ("查看所有容器", "docker ps -a"),
+                ("进入容器终端", "docker exec -it <container_id> /bin/bash"),
+                ("查看实时日志", "docker logs -f --tail=100 <container_id>"),
+                ("清理无用镜像", "docker system prune -a"),
+            ],
+            "Git": [
+                ("简略提交日志", "git log --oneline -n 10"),
+                ("撤销工作区修改", "git checkout ."),
+                ("强制拉取覆盖本地", "git fetch --all\ngit reset --hard origin/master"),
+            ],
+            "Kubernetes": [
+                ("查看所有 Pod", "kubectl get pods -A"),
+                ("查看 Pod 描述", "kubectl describe pod <pod_name>"),
+            ]
+        }
+
+        # 3. 循环写入数据库
+        for group_name, commands in default_data.items():
+            # A. 检查或创建分组
+            group = Group.query.filter_by(name=group_name).first()
+            if not group:
+                group = Group(name=group_name)
+                db.session.add(group)
+                db.session.commit()  # 提交以获取 group.id
+                print(f"[初始化] 创建分组: {group_name}")
+
+            # B. 检查或创建命令
+            for title, content in commands:
+                # 检查该分组下是否已存在同名标题的命令，避免重复添加
+                exists = Command.query.filter_by(title=title, group_id=group.id).first()
+                if not exists:
+                    cmd = Command(title=title, content=content, group_id=group.id)
+                    db.session.add(cmd)
+                    print(f"   └─ 添加命令: {title}")
+
+        db.session.commit()
 
 
 # --- 路由: 主页与命令管理 ---
