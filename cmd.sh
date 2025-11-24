@@ -22,28 +22,85 @@ DATA_FILE=$(mktemp)
 cleanup() {
     rm -f "$COOKIE_JAR" "$DATA_FILE"
 }
+# 确保在脚本退出时清理临时文件
 trap cleanup EXIT
 
 # 检查依赖
 if ! command -v jq &> /dev/null; then
-    echo -e "${RED}错误: 未安装 'jq'。${NC}Mac请运行: brew install jq"
+    echo -e "${RED}错误: 未安装 'jq'。${NC}Mac请运行: brew install jq; Linux(Debian/Ubuntu)请运行: sudo apt install jq" >&2
     exit 1
 fi
 
+# ------------------------------------------
+# URL 编码函数 (修复密码中 & # 等特殊字符问题)
+# ------------------------------------------
+url_encode() {
+    local data="$1"
+    # 使用 awk 来实现编码
+    # 替换所有非字母数字和非 '-' '.' '_' 的字符为 %XX 格式
+    echo "$data" | awk '
+        BEGIN {
+            ORS = ""
+            # 构建编码查找表
+            for (i = 0; i <= 255; i++) {
+                char = sprintf("%c", i)
+                # 保留字符: a-z A-Z 0-9 - . _
+                if (char ~ /[a-zA-Z0-9\-\._]/) {
+                    encoded[char] = char
+                } else {
+                    encoded[char] = sprintf("%%%02X", i)
+                }
+            }
+        }
+        {
+            # 遍历输入字符串的每一个字符并输出编码
+            for (i = 1; i <= length($0); i++) {
+                char = substr($0, i, 1)
+                printf "%s", encoded[char]
+            }
+            print ""
+        }
+    '
+}
+
+# ------------------------------------------
+# 编码处理和登录数据构造
+# ------------------------------------------
+ENCODED_PASSWORD=$(url_encode "$PASSWORD")
+LOGIN_DATA="username=$USERNAME&password=$ENCODED_PASSWORD"
+
+
 # 1. 登录
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -c "$COOKIE_JAR" -d "username=$USERNAME&password=$PASSWORD" "$SERVER_URL/login")
+echo -e "${YELLOW}>> 正在尝试登录: $SERVER_URL/login (用户: $USERNAME)${NC}" >&2
+# 打印 POST 数据供调试
+# echo -e "${CYAN}POST Data: $LOGIN_DATA${NC}" >&2
+
+# 使用 --data-raw 确保发送已编码的字符串，-s 静默模式，-w 获取 HTTP 状态码
+# 增加 -v 选项来输出详细的 curl 响应头到 stderr，帮助调试
+HTTP_RESPONSE=$(curl -s -v -o /dev/null -w "%{http_code}" -c "$COOKIE_JAR" \
+    --data-raw "$LOGIN_DATA" \
+    "$SERVER_URL/login" 2>&1)
+HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -n 1) # 获取最后的 HTTP 状态码
 
 if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "302" ]; then
-    echo -e "${RED}登录失败 ($HTTP_CODE)。请检查 app.py 是否运行，以及密码是否正确。${NC}"
+    echo -e "${RED}登录失败 ($HTTP_CODE)。请检查服务器状态，以及配置是否正确。${NC}" >&2
     exit 1
 fi
 
 # 2. 获取数据
+echo -e "${YELLOW}>> 正在尝试获取数据: $SERVER_URL/api/list${NC}" >&2
+# 使用 -b 携带登录成功的 Cookie
 curl -s -b "$COOKIE_JAR" "$SERVER_URL/api/list" > "$DATA_FILE"
 
 # 校验 JSON
 if ! jq -e . "$DATA_FILE" >/dev/null 2>&1; then
-    echo -e "${RED}数据获取失败,请检查用户名、密码、地址是否报错。${NC}"
+    echo -e "${RED}数据获取失败,请检查用户名、密码、地址是否报错。${NC}" >&2
+
+    # 如果获取数据失败，打印服务器返回的原始内容
+    echo -e "${CYAN}--- 服务器返回原始内容 (可能为登录页或错误信息) ---${NC}" >&2
+    cat "$DATA_FILE" >&2
+    echo -e "${CYAN}------------------------------------------------${NC}" >&2
+
     exit 1
 fi
 
@@ -112,12 +169,15 @@ echo -e "\n${BLUE}>>> 准备就绪:${NC}" >&2
 
 # 剪贴板支持
 COPIED=0
+# 检查是否在 macOS (pbcopy)
 if command -v pbcopy &> /dev/null; then
     echo -n "$CMD_CONTENT" | pbcopy
     COPIED=1
+# 检查是否在 Linux/WSL (xclip)
 elif command -v xclip &> /dev/null; then
     echo -n "$CMD_CONTENT" | xclip -selection clipboard
     COPIED=1
+# 检查是否在 Windows Git Bash/WSL (clip.exe)
 elif command -v clip.exe &> /dev/null; then
     echo -n "$CMD_CONTENT" | clip.exe
     COPIED=1
