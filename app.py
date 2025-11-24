@@ -7,9 +7,8 @@ from sqlalchemy import or_
 
 app = Flask(__name__)
 
-# 配置：优先读取环境变量，方便 Docker 部署时动态修改
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_default_secret')
-# 默认使用本地文件，Docker 中会通过环境变量覆盖此路径
+# 配置：优先从环境变量读取，适合 Docker；本地开发使用默认值
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'secret_key_for_dev')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('SQLALCHEMY_DATABASE_URI', 'sqlite:///database.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -19,7 +18,7 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 
-# --- 模型 ---
+# --- 数据库模型 ---
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True)
@@ -28,9 +27,9 @@ class User(UserMixin, db.Model):
 
 class Command(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    group_name = db.Column(db.String(100), nullable=False)
-    title = db.Column(db.String(100), nullable=False)
-    content = db.Column(db.Text, nullable=False)
+    group_name = db.Column(db.String(100), nullable=False)  # 分组
+    title = db.Column(db.String(100), nullable=False)  # 标题
+    content = db.Column(db.Text, nullable=False)  # 命令内容
 
 
 @login_manager.user_loader
@@ -38,19 +37,21 @@ def load_user(user_id):
     return User.query.get(int(user_id))
 
 
-# --- 初始化 ---
+# --- 初始化逻辑 ---
 def init_db():
-    """应用启动时检查并创建数据库和默认用户"""
     with app.app_context():
         db.create_all()
+        # 创建默认管理员账号 (已修复哈希报错)
         if not User.query.filter_by(username='admin').first():
-            print("初始化管理员账号: admin / 123456")
-            hashed_pw = generate_password_hash('123456', method='sha256')
+            print("正在初始化管理员账号...")
+            # 修正点：不再指定 method='sha256'，使用默认安全算法
+            hashed_pw = generate_password_hash('123456')
             db.session.add(User(username='admin', password_hash=hashed_pw))
             db.session.commit()
+            print("管理员账号创建成功: admin / 123456")
 
 
-# --- 路由 ---
+# --- 路由逻辑 ---
 @app.route('/')
 @login_required
 def index():
@@ -58,7 +59,7 @@ def index():
 
     query = Command.query
 
-    # 搜索逻辑：匹配分组、标题或内容
+    # 搜索逻辑
     if search_query:
         query = query.filter(
             or_(
@@ -68,10 +69,11 @@ def index():
             )
         )
 
-    # 排序逻辑：先按分组名称 A-Z 排序，再按标题 A-Z 排序
+    # 排序逻辑：先按分组名排序，组内按标题排序 (A-Z)
+    # 这样如果想调整顺序，只需在命名前加 "01.", "02." 即可
     commands = query.order_by(Command.group_name, Command.title).all()
 
-    # 分组逻辑：将扁平的列表转换为字典 { "分组名": [命令对象, ...] }
+    # 数据处理：转换为字典 { "Docker": [cmd1, cmd2], "Git": [cmd3] }
     grouped_commands = {}
     for cmd in commands:
         if cmd.group_name not in grouped_commands:
@@ -89,11 +91,12 @@ def add_command():
     content = request.form.get('content')
 
     if group and title and content:
-        db.session.add(Command(group_name=group, title=title, content=content))
+        # 简单的去空格
+        db.session.add(Command(group_name=group.strip(), title=title.strip(), content=content.strip()))
         db.session.commit()
-        flash('命令添加成功', 'success')
+        flash('添加成功！', 'success')
     else:
-        flash('请填写所有字段', 'danger')
+        flash('内容不能为空', 'warning')
 
     return redirect(url_for('index'))
 
@@ -104,7 +107,7 @@ def delete_command(id):
     cmd = Command.query.get_or_404(id)
     db.session.delete(cmd)
     db.session.commit()
-    flash('命令已删除', 'info')
+    flash('已删除', 'info')
     return redirect(url_for('index'))
 
 
@@ -119,7 +122,7 @@ def login():
             login_user(user)
             return redirect(url_for('index'))
         else:
-            flash('用户名或密码错误', 'danger')
+            flash('账号或密码错误', 'danger')
 
     return render_template('login.html')
 
@@ -131,7 +134,7 @@ def logout():
     return redirect(url_for('login'))
 
 
-# 启动时初始化数据库
+# 应用启动时自动初始化
 init_db()
 
 if __name__ == '__main__':
