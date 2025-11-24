@@ -24,7 +24,7 @@ docker run -d \
 **参数解释：**
 
   * `-v $(pwd)/cmd_data:/app/data`:  **最关键的一步**。它把容器里的 `/app/data` 映射到你电脑上的 `cmd_data` 文件夹。这样即使你删除了容器，你的 `database.db` 依然保存在你的电脑里，不会丢失。
-  * `-e ADMIN_PASSWORD="..."`: 设置管理员密码。不填会自动随机一个，需要去日志找到登录密码
+  * `-e ADMIN_PASSWORD="..."`: 设置管理员密码。不填默认123456
   * `-e SECRET_KEY="..."`: 设置防伪密钥，保证 Cookie 安全。不填会默认一个固定值change_this_via_env_var_in_prod
 
 **界面示例：**

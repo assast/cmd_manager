@@ -2,9 +2,10 @@ import os
 import secrets
 from flask import Flask, render_template, redirect, url_for, request, flash
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import or_
+from flask import jsonify
 
 app = Flask(__name__)
 
@@ -57,10 +58,7 @@ def init_db():
         # 1. 初始化管理员
         if not User.query.first():
             admin_user = os.environ.get('ADMIN_USER', 'admin')
-            admin_pass = os.environ.get('ADMIN_PASSWORD')
-            if not admin_pass:
-                admin_pass = secrets.token_urlsafe(10)
-                print(f"\n[系统初始化] 随机密码生成: {admin_pass}\n")
+            admin_pass = os.environ.get('ADMIN_PASSWORD', '123456')
 
             hashed_pw = generate_password_hash(admin_pass)
             db.session.add(User(username=admin_user, password_hash=hashed_pw))
@@ -224,6 +222,64 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+
+# --- 新增：修改密码路由 ---
+@app.route('/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        old_password = request.form.get('old_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        # 1. 验证旧密码是否正确
+        if not check_password_hash(current_user.password_hash, old_password):
+            flash('旧密码错误，请重试。', 'danger')
+            return redirect(url_for('change_password'))
+
+        # 2. 验证两次新密码是否一致
+        if new_password != confirm_password:
+            flash('两次输入的新密码不一致。', 'warning')
+            return redirect(url_for('change_password'))
+
+        # 3. 验证新密码不能为空
+        if not new_password or len(new_password.strip()) == 0:
+            flash('新密码不能为空。', 'warning')
+            return redirect(url_for('change_password'))
+
+        # 4. 更新数据库
+        # 注意：这里使用默认的安全哈希算法
+        current_user.password_hash = generate_password_hash(new_password)
+        db.session.commit()
+
+        flash('密码修改成功！请重新登录。', 'success')
+        logout_user()  # 修改成功后强制登出
+        return redirect(url_for('login'))
+
+    return render_template('change_password.html')
+
+# --- 新增：API 接口供 Shell 脚本调用 ---
+@app.route('/api/list')
+@login_required
+def api_list():
+    # 查询所有分组及其命令
+    groups = Group.query.order_by(Group.name).all()
+    data = []
+    for g in groups:
+        if not g.commands: continue
+
+        cmds = []
+        for c in g.commands:
+            cmds.append({
+                'title': c.title,
+                'content': c.content
+            })
+
+        data.append({
+            'group': g.name,
+            'commands': cmds
+        })
+    return jsonify(data)
 
 init_db()
 
