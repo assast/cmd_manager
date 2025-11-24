@@ -175,6 +175,7 @@ if command -v pbcopy &> /dev/null; then
     COPIED=1
 # 检查是否在 Linux/WSL (xclip)
 elif command -v xclip &> /dev/null; then
+    # 使用 xclip -selection clipboard 复制到通用剪贴板
     echo -n "$CMD_CONTENT" | xclip -selection clipboard
     COPIED=1
 # 检查是否在 Windows Git Bash/WSL (clip.exe)
@@ -183,9 +184,17 @@ elif command -v clip.exe &> /dev/null; then
     COPIED=1
 fi
 
+# 检查是否复制成功
 if [ $COPIED -eq 1 ]; then
     echo -e "${GREEN}✔ 已复制到剪贴板${NC}" >&2
+else
+    # 检查 stdout 是否被重定向。如果 stdout 被重定向（即被管道或捕获），则不打印到 stderr
+    # 这一判断可以防止重复输出，同时保留管道功能。
+    if [ -t 1 ]; then
+        echo -e "${YELLOW}ℹ 无法访问剪贴板，请手动复制以下命令：${NC}" >&2
+        echo -e "${GREEN}$CMD_CONTENT${NC}" >&2
+    fi
 fi
 
-# 最终输出命令 (Stdout)
+# 最终输出命令 (Stdout) - 始终保留，这是脚本的核心输出，用于管道或命令替换。
 echo "$CMD_CONTENT"
