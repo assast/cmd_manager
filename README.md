@@ -33,5 +33,8 @@ docker run -d \
   * `-e ADMIN_PASSWORD="..."`: 设置管理员密码。不填默认123456
   * `-e SECRET_KEY="..."`: 设置防伪密钥，保证 Cookie 安全。不填会默认一个固定值change_this_via_env_var_in_prod
 
+**小鸡安装**
+curl -fsSL https://raw.githubusercontent.com/assast/cmd_manager/refs/heads/main/install.sh -o cm_install.sh && chmod +x cm_install.sh && ./cm_install.sh admin 123456 http://127.0.0.1:5000
+
 **界面示例：**
 ![](./static/WX20251124-140735@2x.png)
