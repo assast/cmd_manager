@@ -192,7 +192,6 @@ else
     # 这一判断可以防止重复输出，同时保留管道功能。
     if [ -t 1 ]; then
         echo -e "${YELLOW}ℹ 无法访问剪贴板，请手动复制以下命令：${NC}" >&2
-        echo -e "${GREEN}$CMD_CONTENT${NC}" >&2
     fi
 fi
 
