@@ -35,6 +35,9 @@ docker run -d \
 
 **小鸡安装**
 curl -fsSL https://raw.githubusercontent.com/assast/cmd_manager/refs/heads/main/install.sh -o cm_install.sh && chmod +x cm_install.sh && ./cm_install.sh admin 123456 http://127.0.0.1:5000
+如果密码有特殊字符 比如有&、=等，请用 ""包裹密码。样例为
+curl -fsSL https://raw.githubusercontent.com/assast/cmd_manager/refs/heads/main/install.sh -o cm_install.sh && chmod +x cm_install.sh && ./cm_install.sh admin "12345=6" http://127.0.0.1:5000
 
 **界面示例：**
-![](./static/WX20251124-140735@2x.png)
+![](./static/WX20251125-090321@2x.png)
+![](./static/WX20251125-090411@2x.png)
