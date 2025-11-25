@@ -3,6 +3,13 @@ name: Build and Push to GHCR
 on:
   push:
     branches: [ "main" ]
+    # 忽略以下文件或目录的变更，不触发构建
+    paths-ignore:
+      - 'README.md'
+      - '.gitignore'
+      - 'cmd.sh'
+      - 'install.sh'
+      - 'static/**'
   workflow_dispatch:
 
 env:

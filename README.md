@@ -31,7 +31,7 @@ docker run -d \
 
   * `-v $(pwd)/cmd_data:/app/data`:  **最关键的一步**。它把容器里的 `/app/data` 映射到你电脑上的 `cmd_data` 文件夹。这样即使你删除了容器，你的 `database.db` 依然保存在你的电脑里，不会丢失。
   * `-e ADMIN_PASSWORD="..."`: 设置管理员密码。不填默认123456
-  * `-e SECRET_KEY="..."`: 设置防伪密钥，保证 Cookie 安全。不填会默认一个固定值change_this_via_env_var_in_prod
+  * `-e SECRET_KEY="..."`: 设置防伪密钥，保证 Cookie 安全。不填会默认一个固定值01KATX9WSFP1T9C4JK26C29AQB，建议自己设置一个
 
 **小鸡安装**
 curl -fsSL https://raw.githubusercontent.com/assast/cmd_manager/refs/heads/main/install.sh -o cm_install.sh && chmod +x cm_install.sh && ./cm_install.sh admin 123456 http://127.0.0.1:5000
