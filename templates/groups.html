@@ -11,45 +11,57 @@
 <div class="container py-5" style="max-width: 800px;">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3><i class="fas fa-layer-group me-2"></i>分组管理</h3>
-        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> 返回首页</a>
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> 返回</a>
     </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show">{{ message }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+                <div class="alert alert-{{ category }} fade show py-2">{{ message }} <button class="btn-close" data-bs-dismiss="alert"></button></div>
             {% endfor %}
         {% endif %}
     {% endwith %}
 
     <div class="card shadow-sm mb-4 border-0">
         <div class="card-body">
-            <form action="{{ url_for('add_group') }}" method="POST" class="d-flex gap-2">
-                <input type="text" name="name" class="form-control" placeholder="输入新分组名称..." required>
-                <button type="submit" class="btn btn-primary text-nowrap"><i class="fas fa-plus"></i> 创建</button>
+            <form action="{{ url_for('add_group') }}" method="POST" class="row g-2 align-items-center">
+                <div class="col-3">
+                    <input type="number" name="sort_order" class="form-control" placeholder="排序权重" value="0">
+                </div>
+                <div class="col-7">
+                    <input type="text" name="name" class="form-control" placeholder="输入分组名称..." required>
+                </div>
+                <div class="col-2">
+                    <button type="submit" class="btn btn-primary w-100"><i class="fas fa-plus"></i></button>
+                </div>
+                <div class="form-text px-1">排序: 数字越小越靠前 (支持 0, 1, 2...)</div>
             </form>
         </div>
     </div>
 
     <div class="card shadow-sm border-0">
-        <ul class="list-group list-group-flush">
+        <div class="list-group list-group-flush">
             {% for group in groups %}
-            <li class="list-group-item d-flex justify-content-between align-items-center py-3">
-                <form action="{{ url_for('edit_group', id=group.id) }}" method="POST" class="d-flex gap-2 flex-grow-1 me-3">
-                    <input type="text" name="name" class="form-control form-control-sm border-0 bg-light" value="{{ group.name }}">
-                    <button type="submit" class="btn btn-sm btn-outline-success"><i class="fas fa-check"></i> 改名</button>
+            <div class="list-group-item py-3">
+                <form action="{{ url_for('edit_group', id=group.id) }}" method="POST" class="row g-2 align-items-center">
+                    <div class="col-3">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-light text-muted">序</span>
+                            <input type="number" name="sort_order" class="form-control text-center" value="{{ group.sort_order }}">
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <input type="text" name="name" class="form-control form-control-sm border-0 fw-bold" value="{{ group.name }}">
+                    </div>
+
+                    <div class="col-3 text-end">
+                        <button type="submit" class="btn btn-sm btn-outline-success me-1" title="保存"><i class="fas fa-check"></i></button>
+                        <a href="{{ url_for('delete_group', id=group.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('⚠️ 将删除该分组及所有命令！确定吗？')"><i class="fas fa-trash"></i></a>
+                    </div>
                 </form>
-
-                <span class="badge bg-secondary me-3" title="包含命令数">{{ group.commands|length }} 条命令</span>
-
-                <a href="{{ url_for('delete_group', id=group.id) }}"
-                   class="btn btn-sm btn-outline-danger"
-                   onclick="return confirm('⚠️ 高危操作！\n\n该操作将删除分组「{{ group.name }}」\n以及该分组下的所有命令！\n\n确定要继续吗？')">
-                    <i class="fas fa-trash"></i> 删除
-                </a>
-            </li>
+            </div>
             {% endfor %}
-        </ul>
+        </div>
     </div>
 </div>
 </body>

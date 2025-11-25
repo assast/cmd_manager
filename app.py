@@ -1,11 +1,10 @@
 import os
 import secrets
-from flask import Flask, render_template, redirect, url_for, request, flash
+from flask import Flask, render_template, redirect, url_for, request, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import or_
-from flask import jsonify
 
 app = Flask(__name__)
 
@@ -20,7 +19,7 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 
-# --- 数据库模型 (升级版) ---
+# --- 数据库模型 ---
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -32,8 +31,12 @@ class Group(db.Model):
     __tablename__ = 'groups'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
-    # 修改点 1: 添加 cascade="all, delete-orphan"，实现级联删除配置
-    commands = db.relationship('Command', backref='group', lazy=True, order_by="Command.title",
+    # 新增排序字段，默认0，越小越靠前
+    sort_order = db.Column(db.Integer, default=0)
+
+    # 关联查询时，让 commands 按 sort_order 排序
+    commands = db.relationship('Command', backref='group', lazy=True,
+                               order_by="[Command.sort_order, Command.id]",
                                cascade="all, delete-orphan")
 
 
@@ -42,13 +45,15 @@ class Command(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    # 外键关联 Group 表
+    # 新增排序字段
+    sort_order = db.Column(db.Integer, default=0)
     group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=False)
 
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    # 【修复点 1】使用新版 session.get 语法
+    return db.session.get(User, int(user_id))
 
 
 # --- 初始化 ---
@@ -56,64 +61,47 @@ def init_db():
     with app.app_context():
         db.create_all()
 
-        # 1. 初始化管理员 (保持原逻辑)
+        # 1. 初始化管理员
         if not User.query.first():
             admin_user = os.environ.get('ADMIN_USER', 'admin')
             admin_pass = os.environ.get('ADMIN_PASSWORD', '123456')
 
             hashed_pw = generate_password_hash(admin_pass)
             db.session.add(User(username=admin_user, password_hash=hashed_pw))
-            db.session.commit()
 
-        # ==========================================
-        # 2. 预置默认命令数据
-        # ==========================================
-        default_data = {
-            "常用命令": [
-                ("查看端口占用", "lsof -i :8080"),
-                ("解压 tar.gz", "tar -zxvf filename.tar.gz"),
-                ("查看磁盘空间", "df -h"),
-            ],
-            "Docker": [
-                ("查看所有容器", "docker ps -a"),
-                ("进入容器终端", "docker exec -it <container_id> /bin/bash"),
-                ("查看实时日志", "docker logs -f --tail=100 <container_id>"),
-                ("清理无用镜像", "docker system prune -a"),
-            ],
-            "Git": [
-                ("简略提交日志", "git log --oneline -n 10"),
-                ("撤销工作区修改", "git checkout ."),
-                ("强制拉取覆盖本地", "git fetch --all\ngit reset --hard origin/master"),
-            ],
-            "Kubernetes": [
-                ("查看所有 Pod", "kubectl get pods -A"),
-                ("查看 Pod 描述", "kubectl describe pod <pod_name>"),
+            # 2. 预置默认数据 (包含排序演示)
+            default_data = [
+                ("常用命令", 0, [
+                    ("查看端口占用", "lsof -i :8080", 0),
+                    ("解压 tar.gz", "tar -zxvf filename.tar.gz", 10),
+                    ("查看磁盘空间", "df -h", 20),
+                ]),
+                ("Docker", 10, [
+                    ("查看容器", "docker ps -a", 0),
+                    ("查看日志", "docker logs -f --tail=100 <id>", 1),
+                    ("进入容器", "docker exec -it <id> /bin/bash", 2),
+                ]),
+                ("Git", 20, [
+                    ("简略日志", "git log --oneline -n 10", 0),
+                    ("撤销修改", "git checkout .", 1),
+                ])
             ]
-        }
 
-        # 3. 循环写入数据库
-        for group_name, commands in default_data.items():
-            # A. 检查或创建分组
-            group = Group.query.filter_by(name=group_name).first()
-            if not group:
-                group = Group(name=group_name)
-                db.session.add(group)
-                db.session.commit()  # 提交以获取 group.id
-                print(f"[初始化] 创建分组: {group_name}")
+            for g_name, g_sort, cmds in default_data:
+                if not Group.query.filter_by(name=g_name).first():
+                    group = Group(name=g_name, sort_order=g_sort)
+                    db.session.add(group)
+                    db.session.commit()
 
-            # B. 检查或创建命令
-            for title, content in commands:
-                # 检查该分组下是否已存在同名标题的命令，避免重复添加
-                exists = Command.query.filter_by(title=title, group_id=group.id).first()
-                if not exists:
-                    cmd = Command(title=title, content=content, group_id=group.id)
-                    db.session.add(cmd)
-                    print(f"   └─ 添加命令: {title}")
+                    for c_title, c_content, c_sort in cmds:
+                        cmd = Command(title=c_title, content=c_content, sort_order=c_sort, group_id=group.id)
+                        db.session.add(cmd)
 
-        db.session.commit()
+            db.session.commit()
+            print("数据库初始化完成")
 
 
-# --- 路由: 主页与命令管理 ---
+# --- 主页路由 ---
 
 @app.route('/')
 @login_required
@@ -121,23 +109,22 @@ def index():
     search_query = request.args.get('q', '').strip()
 
     if search_query:
-        # 查找匹配的命令
+        # 搜索逻辑
         commands = Command.query.filter(
             or_(Command.title.contains(search_query),
                 Command.content.contains(search_query))
-        ).all()
+        ).order_by(Command.sort_order, Command.id).all()
 
-        # 临时按分组归类
         groups_data = {}
         for cmd in commands:
             if cmd.group not in groups_data:
                 groups_data[cmd.group] = []
             groups_data[cmd.group].append(cmd)
 
-        display_data = groups_data.items()
+        display_data = sorted(groups_data.items(), key=lambda x: (x[0].sort_order, x[0].id))
     else:
-        # 正常展示：查询所有分组 (按名称排序)
-        all_groups = Group.query.order_by(Group.name).all()
+        # 正常展示
+        all_groups = Group.query.order_by(Group.sort_order, Group.id).all()
         display_data = []
         for g in all_groups:
             if g.commands:
@@ -145,8 +132,7 @@ def index():
             elif not search_query:
                 display_data.append((g, []))
 
-    all_groups_list = Group.query.order_by(Group.name).all()
-
+    all_groups_list = Group.query.order_by(Group.sort_order, Group.id).all()
     return render_template('index.html', display_data=display_data, all_groups=all_groups_list,
                            search_query=search_query)
 
@@ -157,9 +143,10 @@ def add_command():
     group_id = request.form.get('group_id')
     title = request.form.get('title')
     content = request.form.get('content')
+    sort_order = request.form.get('sort_order', 0, type=int)
 
     if group_id and title and content:
-        cmd = Command(group_id=group_id, title=title, content=content)
+        cmd = Command(group_id=group_id, title=title, content=content, sort_order=sort_order)
         db.session.add(cmd)
         db.session.commit()
         flash('命令添加成功', 'success')
@@ -171,10 +158,12 @@ def add_command():
 @app.route('/command/edit/<int:id>', methods=['POST'])
 @login_required
 def edit_command(id):
-    cmd = Command.query.get_or_404(id)
+    # 【修复点 2】使用 db.get_or_404
+    cmd = db.get_or_404(Command, id)
     cmd.title = request.form.get('title')
     cmd.content = request.form.get('content')
     cmd.group_id = request.form.get('group_id')
+    cmd.sort_order = request.form.get('sort_order', 0, type=int)
 
     db.session.commit()
     flash('命令已更新', 'success')
@@ -184,19 +173,20 @@ def edit_command(id):
 @app.route('/command/delete/<int:id>')
 @login_required
 def delete_command(id):
-    cmd = Command.query.get_or_404(id)
+    # 【修复点 3】使用 db.get_or_404
+    cmd = db.get_or_404(Command, id)
     db.session.delete(cmd)
     db.session.commit()
     flash('命令已删除', 'info')
     return redirect(url_for('index'))
 
 
-# --- 路由: 分组管理 ---
+# --- 分组管理路由 ---
 
 @app.route('/groups')
 @login_required
 def manage_groups():
-    groups = Group.query.order_by(Group.name).all()
+    groups = Group.query.order_by(Group.sort_order, Group.id).all()
     return render_template('groups.html', groups=groups)
 
 
@@ -204,11 +194,12 @@ def manage_groups():
 @login_required
 def add_group():
     name = request.form.get('name')
+    sort_order = request.form.get('sort_order', 0, type=int)
     if name:
         if Group.query.filter_by(name=name).first():
             flash('该分组已存在', 'warning')
         else:
-            db.session.add(Group(name=name))
+            db.session.add(Group(name=name, sort_order=sort_order))
             db.session.commit()
             flash('分组创建成功', 'success')
     return redirect(url_for('manage_groups'))
@@ -217,46 +208,39 @@ def add_group():
 @app.route('/groups/edit/<int:id>', methods=['POST'])
 @login_required
 def edit_group(id):
-    group = Group.query.get_or_404(id)
+    # 【修复点 4】使用 db.get_or_404
+    group = db.get_or_404(Group, id)
     new_name = request.form.get('name')
+    sort_order = request.form.get('sort_order', 0, type=int)
+
     if new_name:
         group.name = new_name
+        group.sort_order = sort_order
         db.session.commit()
-        flash('分组重命名成功', 'success')
+        flash('分组更新成功', 'success')
     return redirect(url_for('manage_groups'))
 
 
 @app.route('/groups/delete/<int:id>')
 @login_required
 def delete_group(id):
-    group = Group.query.get_or_404(id)
-
-    # 修改点 2: 移除检查命令是否为空的逻辑
-    # SQLAlchemy 的 cascade 配置会自动删除命令
-    # 但为了保险起见（防止旧数据库结构未更新），我们在 Python 层也手动删除一次命令
+    # 【修复点 5】使用 db.get_or_404
+    group = db.get_or_404(Group, id)
     try:
-        count = len(group.commands)
-        # 手动删除关联的命令 (双重保险)
+        # 手动清理命令 (双重保险)
         for cmd in group.commands:
             db.session.delete(cmd)
-
-        # 删除分组
         db.session.delete(group)
         db.session.commit()
-
-        if count > 0:
-            flash(f'分组 "{group.name}" 及包含的 {count} 条命令已全部删除。', 'success')
-        else:
-            flash(f'分组 "{group.name}" 已删除。', 'success')
-
+        flash(f'分组 "{group.name}" 已删除', 'success')
     except Exception as e:
         db.session.rollback()
         flash(f'删除失败: {str(e)}', 'danger')
-
     return redirect(url_for('manage_groups'))
 
 
-# --- 登录相关 ---
+# --- 认证与API ---
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -275,57 +259,39 @@ def logout():
     return redirect(url_for('login'))
 
 
-# --- 修改密码路由 ---
 @app.route('/change-password', methods=['GET', 'POST'])
 @login_required
 def change_password():
     if request.method == 'POST':
-        old_password = request.form.get('old_password')
-        new_password = request.form.get('new_password')
-        confirm_password = request.form.get('confirm_password')
+        old = request.form.get('old_password')
+        new = request.form.get('new_password')
+        confirm = request.form.get('confirm_password')
 
-        if not check_password_hash(current_user.password_hash, old_password):
-            flash('旧密码错误，请重试。', 'danger')
+        if not check_password_hash(current_user.password_hash, old):
+            flash('旧密码错误', 'danger')
+            return redirect(url_for('change_password'))
+        if new != confirm or not new:
+            flash('新密码不一致或为空', 'warning')
             return redirect(url_for('change_password'))
 
-        if new_password != confirm_password:
-            flash('两次输入的新密码不一致。', 'warning')
-            return redirect(url_for('change_password'))
-
-        if not new_password or len(new_password.strip()) == 0:
-            flash('新密码不能为空。', 'warning')
-            return redirect(url_for('change_password'))
-
-        current_user.password_hash = generate_password_hash(new_password)
+        current_user.password_hash = generate_password_hash(new)
         db.session.commit()
-
-        flash('密码修改成功！请重新登录。', 'success')
+        flash('密码修改成功，请重新登录', 'success')
         logout_user()
         return redirect(url_for('login'))
 
     return render_template('change_password.html')
 
 
-# --- API 接口供 Shell 脚本调用 ---
 @app.route('/api/list')
 @login_required
 def api_list():
-    groups = Group.query.order_by(Group.name).all()
+    groups = Group.query.order_by(Group.sort_order, Group.id).all()
     data = []
     for g in groups:
         if not g.commands: continue
-
-        cmds = []
-        for c in g.commands:
-            cmds.append({
-                'title': c.title,
-                'content': c.content
-            })
-
-        data.append({
-            'group': g.name,
-            'commands': cmds
-        })
+        cmds = [{'title': c.title, 'content': c.content} for c in g.commands]
+        data.append({'group': g.name, 'commands': cmds})
     return jsonify(data)
 
 
