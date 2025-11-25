@@ -7,34 +7,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .cmd-font { font-family: "JetBrains Mono", Consolas, monospace; font-size: 0.85rem; }
-
-        .group-divider {
-            border-bottom: 1px solid #e9ecef;
-            margin-top: 20px;
-            margin-bottom: 10px;
-            padding-bottom: 5px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            display: flex;
-            align-items: center;
-            color: #495057;
-        }
-
-        .code-block {
-            background-color: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            position: relative;
-            margin-top: 5px;
-        }
-        .code-content {
-            margin: 0;
-            padding: 8px 30px 8px 8px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            color: #d63384;
-            line-height: 1.4;
-        }
+        .group-divider { border-bottom: 1px solid #e9ecef; margin-top: 20px; margin-bottom: 10px; padding-bottom: 5px; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; color: #495057; }
+        .code-block { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; position: relative; margin-top: 5px; }
+        .code-content { margin: 0; padding: 8px 30px 8px 8px; white-space: pre-wrap; word-wrap: break-word; color: #d63384; line-height: 1.4; }
         .btn-copy-abs { position: absolute; top: 2px; right: 2px; background: transparent; border: none; color: #adb5bd; padding: 2px 6px; }
         .btn-copy-abs:hover { color: #0d6efd; }
     </style>
@@ -108,6 +83,7 @@
                                             data-title="{{ cmd.title }}"
                                             data-content="{{ cmd.content }}"
                                             data-group="{{ group.id }}"
+                                            data-sort="{{ cmd.sort_order }}"
                                             style="font-size: 0.8rem;">
                                         <i class="fas fa-edit"></i>
                                     </button>
@@ -140,13 +116,19 @@
             </div>
             <form action="{{ url_for('add_command') }}" method="POST">
                 <div class="modal-body p-3">
-                    <div class="mb-2">
-                        <label class="form-label small mb-1">分组</label>
-                        <select name="group_id" class="form-select form-select-sm" required>
-                            {% for g in all_groups %}
-                            <option value="{{ g.id }}">{{ g.name }}</option>
-                            {% endfor %}
-                        </select>
+                    <div class="row mb-2">
+                        <div class="col-8">
+                            <label class="form-label small mb-1">分组</label>
+                            <select name="group_id" class="form-select form-select-sm" required>
+                                {% for g in all_groups %}
+                                <option value="{{ g.id }}">{{ g.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small mb-1">排序权重</label>
+                            <input type="number" name="sort_order" class="form-control form-control-sm" value="0" placeholder="0">
+                        </div>
                     </div>
                     <div class="mb-2">
                         <label class="form-label small mb-1">标题</label>
@@ -174,13 +156,19 @@
             </div>
             <form id="editForm" method="POST">
                 <div class="modal-body p-3">
-                    <div class="mb-2">
-                        <label class="form-label small mb-1">分组</label>
-                        <select name="group_id" id="edit-group" class="form-select form-select-sm" required>
-                            {% for g in all_groups %}
-                            <option value="{{ g.id }}">{{ g.name }}</option>
-                            {% endfor %}
-                        </select>
+                    <div class="row mb-2">
+                        <div class="col-8">
+                            <label class="form-label small mb-1">分组</label>
+                            <select name="group_id" id="edit-group" class="form-select form-select-sm" required>
+                                {% for g in all_groups %}
+                                <option value="{{ g.id }}">{{ g.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small mb-1">排序权重</label>
+                            <input type="number" name="sort_order" id="edit-sort" class="form-control form-control-sm" value="0">
+                        </div>
                     </div>
                     <div class="mb-2">
                         <label class="form-label small mb-1">标题</label>
@@ -201,8 +189,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // 修复后的复制函数：从 data-cmd 读取数据，无需手动处理转义
+    // 修改点 2: 复制函数直接从 data-cmd 属性读取内容
     function copyCmd(btn) {
+        // 读取 data-cmd 属性，浏览器会自动处理转义，保证拿到的就是原始字符串
         const text = btn.getAttribute('data-cmd');
 
         navigator.clipboard.writeText(text).then(() => {
@@ -210,8 +199,8 @@
             icon.className = 'fas fa-check text-success';
             setTimeout(() => icon.className = 'far fa-copy', 1500);
         }).catch(err => {
-            console.error('复制失败:', err);
-            alert('复制失败');
+            console.error("复制失败: ", err);
+            alert("复制失败，请手动复制");
         });
     }
 
@@ -221,6 +210,7 @@
         document.getElementById('edit-title').value = button.getAttribute('data-title');
         document.getElementById('edit-content').value = button.getAttribute('data-content');
         document.getElementById('edit-group').value = button.getAttribute('data-group');
+        document.getElementById('edit-sort').value = button.getAttribute('data-sort');
         document.getElementById('editForm').action = '/command/edit/' + button.getAttribute('data-id');
     });
 </script>
