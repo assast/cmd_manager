@@ -8,14 +8,71 @@
     <style>
         .cmd-font { font-family: "JetBrains Mono", Consolas, monospace; font-size: 0.85rem; }
         .group-divider { border-bottom: 1px solid #e9ecef; margin-top: 20px; margin-bottom: 10px; padding-bottom: 5px; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; color: #495057; }
-        .code-block { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; position: relative; margin-top: 5px; }
-        .code-content { margin: 0; padding: 8px 30px 8px 8px; white-space: pre-wrap; word-wrap: break-word; color: #d63384; line-height: 1.4; }
-        .btn-copy-abs { position: absolute; top: 2px; right: 2px; background: transparent; border: none; color: #adb5bd; padding: 2px 6px; }
-        .btn-copy-abs:hover { color: #0d6efd; }
-        /* 页脚样式 */
+
+        /* 代码块容器 */
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            position: relative;
+            margin-top: 5px;
+            transition: all 0.2s;
+        }
+
+        /* === 模式 1: 完整版 (默认) === */
+        .code-content {
+            margin: 0;
+            padding: 10px 35px 10px 10px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            word-break: break-all;
+            color: #d63384;
+            line-height: 1.5;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        /* 美化滚动条 */
+        .code-content::-webkit-scrollbar { width: 6px; height: 6px; }
+        .code-content::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 3px; }
+        .code-content::-webkit-scrollbar-track { background: transparent; }
+
+        /* === 模式 2: 简洁版 (核心修改) === */
+        body.mode-simple .code-content {
+            /* 关键修改：使用 line-clamp 实现只显示第一行 */
+            display: -webkit-box;
+            -webkit-line-clamp: 1;       /* 限制显示 1 行 */
+            -webkit-box-orient: vertical;
+            overflow: hidden;            /* 隐藏溢出内容 */
+            white-space: pre-wrap;       /* 保持换行符的存在，这样 line-clamp 才能识别行 */
+            word-break: break-all;       /* 允许长单词打断 */
+
+            max-height: none;            /* 取消高度限制 */
+            padding-top: 8px;
+            padding-bottom: 8px;
+        }
+
+        /* 复制按钮 */
+        .btn-copy-abs {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(248, 249, 250, 0.9);
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            color: #6c757d;
+            padding: 2px 7px;
+            cursor: pointer;
+            z-index: 10;
+        }
+        .btn-copy-abs:hover { color: #0d6efd; background: #fff; border-color: #0d6efd; }
+
+        /* 页脚 */
         .app-footer { margin-top: 40px; padding-bottom: 20px; text-align: center; font-size: 0.8rem; color: #adb5bd; }
         .app-footer a { color: #6c757d; text-decoration: none; transition: 0.2s; }
         .app-footer a:hover { color: #0d6efd; }
+
+        /* 视图切换按钮激活状态 */
+        .view-btn.active { background-color: #495057; color: #fff; border-color: #495057; }
     </style>
 </head>
 <body class="bg-light">
@@ -23,10 +80,21 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-3 shadow-sm py-2">
     <div class="container">
         <a class="navbar-brand fs-6" href="/"><i class="fas fa-terminal me-2"></i>CMD Manager</a>
+
         <div class="d-flex align-items-center">
+            <div class="btn-group btn-group-sm me-3" role="group">
+                <button type="button" class="btn btn-outline-light view-btn" id="btn-view-simple" onclick="setMode('simple')" title="简洁版">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <button type="button" class="btn btn-outline-light view-btn" id="btn-view-full" onclick="setMode('full')" title="完整版">
+                    <i class="fas fa-align-left"></i>
+                </button>
+            </div>
+
             <a href="{{ url_for('manage_groups') }}" class="btn btn-outline-light btn-sm me-3" style="font-size: 0.8rem;">
                 <i class="fas fa-layer-group"></i> 分组
             </a>
+
             <div class="dropdown">
                 <button class="btn btn-secondary btn-sm dropdown-toggle py-0" type="button" data-bs-toggle="dropdown" style="font-size: 0.8rem;">
                     <i class="fas fa-user-circle me-1"></i> {{ current_user.username }}
@@ -77,7 +145,7 @@
                 <div class="col-lg-6">
                     <div class="card h-100 border-0 shadow-sm">
                         <div class="card-body p-2">
-                            <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
                                 <h6 class="fw-bold text-dark mb-0 small text-truncate" style="max-width: 80%;">{{ cmd.title }}</h6>
                                 <div>
                                     <button class="btn btn-sm btn-link text-primary p-0 me-2"
@@ -96,7 +164,7 @@
                             </div>
                             <div class="code-block">
                                 <pre class="code-content cmd-font">{{ cmd.content }}</pre>
-                                <button class="btn-copy-abs" data-cmd="{{ cmd.content }}" onclick="copyCmd(this)">
+                                <button class="btn-copy-abs" data-cmd="{{ cmd.content }}" onclick="copyCmd(this)" title="复制">
                                     <i class="far fa-copy"></i>
                                 </button>
                             </div>
@@ -201,12 +269,43 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    // 页面加载时初始化视图模式
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedMode = localStorage.getItem('viewMode') || 'full';
+        setMode(savedMode);
+    });
+
+    // 切换视图模式函数
+    function setMode(mode) {
+        const btnSimple = document.getElementById('btn-view-simple');
+        const btnFull = document.getElementById('btn-view-full');
+
+        if (mode === 'simple') {
+            document.body.classList.add('mode-simple');
+            btnSimple.classList.add('active');
+            btnFull.classList.remove('active');
+        } else {
+            document.body.classList.remove('mode-simple');
+            btnFull.classList.add('active');
+            btnSimple.classList.remove('active');
+        }
+        // 保存用户偏好
+        localStorage.setItem('viewMode', mode);
+    }
+
+    // 复制功能
     function copyCmd(btn) {
         const text = btn.getAttribute('data-cmd');
         navigator.clipboard.writeText(text).then(() => {
             const icon = btn.querySelector('i');
+
             icon.className = 'fas fa-check text-success';
-            setTimeout(() => icon.className = 'far fa-copy', 1500);
+            btn.style.borderColor = '#198754';
+
+            setTimeout(() => {
+                icon.className = 'far fa-copy';
+                btn.style.borderColor = '#dee2e6';
+            }, 1500);
         }).catch(err => {
             console.error("复制失败: ", err);
             alert("复制失败，请手动复制");
