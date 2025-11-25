@@ -33,6 +33,7 @@ docker run -d \
   * `-e SECRET_KEY="..."`: 设置防伪密钥，保证 Cookie 安全。不填会默认一个固定值01KATX9WSFP1T9C4JK26C29AQB，建议自己设置一个
 
 **小鸡一键脚本**
+以下脚本的用户名密码服务器地址均为样例，请自行修改。
 ```
 curl -fsSL https://raw.githubusercontent.com/assast/cmd_manager/refs/heads/main/install.sh -o cm_install.sh && chmod +x cm_install.sh && ./cm_install.sh admin 123456 http://127.0.0.1:5000
 ```
@@ -40,6 +41,13 @@ curl -fsSL https://raw.githubusercontent.com/assast/cmd_manager/refs/heads/main/
 ```
 curl -fsSL https://raw.githubusercontent.com/assast/cmd_manager/refs/heads/main/install.sh -o cm_install.sh && chmod +x cm_install.sh && ./cm_install.sh admin "12345=6" http://127.0.0.1:5000
 ```
+`cm`命令即可唤出命令面板
+
+**如果小鸡非root用户，请用sudo执行，样例为**
+```
+curl -fsSL https://raw.githubusercontent.com/assast/cmd_manager/refs/heads/main/install.sh -o cm_install.sh && sudo chmod +x cm_install.sh && sudo ./cm_install.sh admin "12345=6" http://127.0.0.1:5000
+```
+唤出命令面板命令变更为`sudo cm`
 **界面示例：**
 ![](./static/WX20251125-090321@2x.png)
 ![](./static/WX20251125-090411@2x.png)
