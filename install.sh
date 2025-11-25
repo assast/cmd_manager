@@ -2,14 +2,14 @@
 
 # ==========================================
 # Cmd Manager 一键安装脚本
-# 用法: sudo ./install.sh <用户名> <密码> [服务器地址]
+# 用法: ./install.sh <用户名> <密码> [服务器地址]
 # ==========================================
 
 # 1. 参数检查
 if [ -z "$1" ] || [ -z "$2" ]; then
     echo "❌ 错误: 缺少参数"
-    echo "用法: sudo bash install.sh <用户名> <密码> [服务器地址]"
-    echo "示例: sudo bash install.sh admin 123456 http://192.168.1.100:5000"
+    echo "用法: bash install.sh <用户名> <密码> [服务器地址]"
+    echo "示例: bash install.sh admin 123456 http://192.168.1.100:5000"
     exit 1
 fi
 
