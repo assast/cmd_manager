@@ -27,7 +27,7 @@
             word-wrap: break-word;
             word-break: break-all;
             color: #d63384;
-            line-height: 1.5;
+            line-height: 1.6;        /* 稍微增加行高，更清晰 */
             max-height: 200px;
             overflow-y: auto;
         }
@@ -36,19 +36,25 @@
         .code-content::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 3px; }
         .code-content::-webkit-scrollbar-track { background: transparent; }
 
-        /* === 模式 2: 简洁版 (核心修改) === */
+        /* === 模式 2: 简洁版 (完美修复) === */
         body.mode-simple .code-content {
-            /* 关键修改：使用 line-clamp 实现只显示第一行 */
-            display: -webkit-box;
-            -webkit-line-clamp: 1;       /* 限制显示 1 行 */
-            -webkit-box-orient: vertical;
-            overflow: hidden;            /* 隐藏溢出内容 */
-            white-space: pre-wrap;       /* 保持换行符的存在，这样 line-clamp 才能识别行 */
-            word-break: break-all;       /* 允许长单词打断 */
+            /* 关键 1: 使用 pre 保留换行符结构，让第二行真正排在下面，而不是拼在后面 */
+            white-space: pre;
 
-            max-height: none;            /* 取消高度限制 */
-            padding-top: 8px;
-            padding-bottom: 8px;
+            /* 关键 2: 隐藏溢出 (水平溢出 + 垂直溢出的第二行) */
+            overflow: hidden;
+
+            /* 关键 3: 第一行如果太长，末尾显示省略号 */
+            text-overflow: ellipsis;
+
+            /* 关键 4: 严格控制高度，只留出一行的高度，切掉第二行 */
+            line-height: 24px;       /* 设定固定的文字行高 */
+            height: 38px;            /* 24px文字 + 7px上边距 + 7px下边距 */
+            padding-top: 7px;
+            padding-bottom: 7px;
+
+            max-height: none;
+            display: block;
         }
 
         /* 复制按钮 */
