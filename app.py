@@ -32,8 +32,9 @@ class Group(db.Model):
     __tablename__ = 'groups'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
-    # 关联关系：让 Group 可以直接访问包含的 commands，并按标题排序
-    commands = db.relationship('Command', backref='group', lazy=True, order_by="Command.title")
+    # 修改点 1: 添加 cascade="all, delete-orphan"，实现级联删除配置
+    commands = db.relationship('Command', backref='group', lazy=True, order_by="Command.title",
+                               cascade="all, delete-orphan")
 
 
 class Command(db.Model):
@@ -65,7 +66,7 @@ def init_db():
             db.session.commit()
 
         # ==========================================
-        # 2. 预置默认命令数据 (在这里修改你的内置命令)
+        # 2. 预置默认命令数据
         # ==========================================
         default_data = {
             "常用命令": [
@@ -119,10 +120,6 @@ def init_db():
 def index():
     search_query = request.args.get('q', '').strip()
 
-    # 如果有搜索，我们需要过滤显示
-    # 注意：为了保持分组视图，我们查询 Group，但只包含匹配的 Command
-    # 这里为了简单，如果搜索存在，我们手动构建数据结构
-
     if search_query:
         # 查找匹配的命令
         commands = Command.query.filter(
@@ -137,20 +134,17 @@ def index():
                 groups_data[cmd.group] = []
             groups_data[cmd.group].append(cmd)
 
-        # 转换为列表元组方便前端遍历 [(group_obj, [cmd_list]), ...]
         display_data = groups_data.items()
     else:
         # 正常展示：查询所有分组 (按名称排序)
         all_groups = Group.query.order_by(Group.name).all()
-        # 格式统一为: [(group_obj, group.commands), ...]
         display_data = []
         for g in all_groups:
-            if g.commands:  # 只显示有命令的分组，或者你想显示空分组也可以
+            if g.commands:
                 display_data.append((g, g.commands))
-            elif not search_query:  # 没搜索时，空分组也显示，方便知道有哪些组
+            elif not search_query:
                 display_data.append((g, []))
 
-    # 获取所有分组供“新增/编辑”模态框的下拉列表使用
     all_groups_list = Group.query.order_by(Group.name).all()
 
     return render_template('index.html', display_data=display_data, all_groups=all_groups_list,
@@ -236,13 +230,29 @@ def edit_group(id):
 @login_required
 def delete_group(id):
     group = Group.query.get_or_404(id)
-    # 安全检查：如果分组下有命令，禁止删除，防止误删数据
-    if group.commands:
-        flash(f'无法删除：分组 "{group.name}" 下还有 {len(group.commands)} 条命令。请先删除或移动命令。', 'danger')
-    else:
+
+    # 修改点 2: 移除检查命令是否为空的逻辑
+    # SQLAlchemy 的 cascade 配置会自动删除命令
+    # 但为了保险起见（防止旧数据库结构未更新），我们在 Python 层也手动删除一次命令
+    try:
+        count = len(group.commands)
+        # 手动删除关联的命令 (双重保险)
+        for cmd in group.commands:
+            db.session.delete(cmd)
+
+        # 删除分组
         db.session.delete(group)
         db.session.commit()
-        flash('分组已删除', 'success')
+
+        if count > 0:
+            flash(f'分组 "{group.name}" 及包含的 {count} 条命令已全部删除。', 'success')
+        else:
+            flash(f'分组 "{group.name}" 已删除。', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'删除失败: {str(e)}', 'danger')
+
     return redirect(url_for('manage_groups'))
 
 
@@ -265,7 +275,7 @@ def logout():
     return redirect(url_for('login'))
 
 
-# --- 新增：修改密码路由 ---
+# --- 修改密码路由 ---
 @app.route('/change-password', methods=['GET', 'POST'])
 @login_required
 def change_password():
@@ -274,37 +284,32 @@ def change_password():
         new_password = request.form.get('new_password')
         confirm_password = request.form.get('confirm_password')
 
-        # 1. 验证旧密码是否正确
         if not check_password_hash(current_user.password_hash, old_password):
             flash('旧密码错误，请重试。', 'danger')
             return redirect(url_for('change_password'))
 
-        # 2. 验证两次新密码是否一致
         if new_password != confirm_password:
             flash('两次输入的新密码不一致。', 'warning')
             return redirect(url_for('change_password'))
 
-        # 3. 验证新密码不能为空
         if not new_password or len(new_password.strip()) == 0:
             flash('新密码不能为空。', 'warning')
             return redirect(url_for('change_password'))
 
-        # 4. 更新数据库
-        # 注意：这里使用默认的安全哈希算法
         current_user.password_hash = generate_password_hash(new_password)
         db.session.commit()
 
         flash('密码修改成功！请重新登录。', 'success')
-        logout_user()  # 修改成功后强制登出
+        logout_user()
         return redirect(url_for('login'))
 
     return render_template('change_password.html')
 
-# --- 新增：API 接口供 Shell 脚本调用 ---
+
+# --- API 接口供 Shell 脚本调用 ---
 @app.route('/api/list')
 @login_required
 def api_list():
-    # 查询所有分组及其命令
     groups = Group.query.order_by(Group.name).all()
     data = []
     for g in groups:
@@ -322,6 +327,7 @@ def api_list():
             'commands': cmds
         })
     return jsonify(data)
+
 
 init_db()
 

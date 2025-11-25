@@ -42,7 +42,9 @@
 
                 <span class="badge bg-secondary me-3" title="包含命令数">{{ group.commands|length }} 条命令</span>
 
-                <a href="{{ url_for('delete_group', id=group.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('确定删除该分组吗？只有空分组才能删除。')">
+                <a href="{{ url_for('delete_group', id=group.id) }}"
+                   class="btn btn-sm btn-outline-danger"
+                   onclick="return confirm('⚠️ 高危操作！\n\n该操作将删除分组「{{ group.name }}」\n以及该分组下的所有命令！\n\n确定要继续吗？')">
                     <i class="fas fa-trash"></i> 删除
                 </a>
             </li>
