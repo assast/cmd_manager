@@ -5,6 +5,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError  # 【修改点】引入完整性错误异常
 
 app = Flask(__name__)
 
@@ -52,53 +53,82 @@ class Command(db.Model):
 
 @login_manager.user_loader
 def load_user(user_id):
-    # 【修复点 1】使用新版 session.get 语法
     return db.session.get(User, int(user_id))
 
 
-# --- 初始化 ---
+# --- 初始化 (并发安全版) ---
 def init_db():
     with app.app_context():
         db.create_all()
 
         # 1. 初始化管理员
-        if not User.query.first():
-            admin_user = os.environ.get('ADMIN_USER', 'admin')
-            admin_pass = os.environ.get('ADMIN_PASSWORD', '123456')
+        admin_user = os.environ.get('ADMIN_USER', 'admin')
+        admin_pass = os.environ.get('ADMIN_PASSWORD', '123456')
 
-            hashed_pw = generate_password_hash(admin_pass)
-            db.session.add(User(username=admin_user, password_hash=hashed_pw))
+        # 检查用户是否存在
+        if not User.query.filter_by(username=admin_user).first():
+            try:
+                hashed_pw = generate_password_hash(admin_pass)
+                db.session.add(User(username=admin_user, password_hash=hashed_pw))
+                db.session.commit()
+                print(f"[初始化] 管理员 {admin_user} 创建成功")
+            except IntegrityError:
+                db.session.rollback()
+                print(f"[初始化] 管理员 {admin_user} 已由其他进程创建，跳过")
 
-            # 2. 预置默认数据 (包含排序演示)
-            default_data = [
-                ("常用命令", 0, [
-                    ("查看端口占用", "lsof -i :8080", 0),
-                    ("解压 tar.gz", "tar -zxvf filename.tar.gz", 10),
-                    ("查看磁盘空间", "df -h", 20),
-                ]),
-                ("Docker", 10, [
-                    ("查看容器", "docker ps -a", 0),
-                    ("查看日志", "docker logs -f --tail=100 <id>", 1),
-                    ("进入容器", "docker exec -it <id> /bin/bash", 2),
-                ]),
-                ("Git", 20, [
-                    ("简略日志", "git log --oneline -n 10", 0),
-                    ("撤销修改", "git checkout .", 1),
-                ])
-            ]
+        # 2. 预置默认数据
+        default_data = [
+            ("常用命令", 0, [
+                ("查看端口占用", "lsof -i :8080", 0),
+                ("解压 tar.gz", "tar -zxvf filename.tar.gz", 10),
+                ("查看磁盘空间", "df -h", 20),
+            ]),
+            ("Docker", 10, [
+                ("查看容器", "docker ps -a", 0),
+                ("查看日志", "docker logs -f --tail=100 <id>", 1),
+                ("进入容器", "docker exec -it <id> /bin/bash", 2),
+            ]),
+            ("Git", 20, [
+                ("简略日志", "git log --oneline -n 10", 0),
+                ("撤销修改", "git checkout .", 1),
+            ])
+        ]
 
-            for g_name, g_sort, cmds in default_data:
-                if not Group.query.filter_by(name=g_name).first():
+        for g_name, g_sort, cmds in default_data:
+            group = None
+            # 尝试查找分组
+            group = Group.query.filter_by(name=g_name).first()
+
+            # 如果分组不存在，尝试创建
+            if not group:
+                try:
                     group = Group(name=g_name, sort_order=g_sort)
                     db.session.add(group)
+                    # flush 以获取 ID，如果此时有并发写入，这里会报错
+                    db.session.flush()
                     db.session.commit()
+                    print(f"[初始化] 分组 {g_name} 创建成功")
+                except IntegrityError:
+                    db.session.rollback()
+                    # 回滚后，说明被别的进程抢先创建了，重新查询获取该分组对象
+                    group = Group.query.filter_by(name=g_name).first()
+                    print(f"[初始化] 分组 {g_name} 并发跳过")
 
-                    for c_title, c_content, c_sort in cmds:
-                        cmd = Command(title=c_title, content=c_content, sort_order=c_sort, group_id=group.id)
-                        db.session.add(cmd)
+            # 确保拿到了分组对象后，再处理下面的命令
+            if group:
+                for c_title, c_content, c_sort in cmds:
+                    # 检查命令是否存在（避免重复添加）
+                    if not Command.query.filter_by(title=c_title, group_id=group.id).first():
+                        try:
+                            cmd = Command(title=c_title, content=c_content, sort_order=c_sort, group_id=group.id)
+                            db.session.add(cmd)
+                            db.session.commit()
+                        except IntegrityError:
+                            db.session.rollback()
+                            # 命令冲突忽略即可
+                            pass
 
-            db.session.commit()
-            print("数据库初始化完成")
+        print("数据库初始化检查完成")
 
 
 # --- 主页路由 ---
@@ -158,7 +188,6 @@ def add_command():
 @app.route('/command/edit/<int:id>', methods=['POST'])
 @login_required
 def edit_command(id):
-    # 【修复点 2】使用 db.get_or_404
     cmd = db.get_or_404(Command, id)
     cmd.title = request.form.get('title')
     cmd.content = request.form.get('content')
@@ -173,7 +202,6 @@ def edit_command(id):
 @app.route('/command/delete/<int:id>')
 @login_required
 def delete_command(id):
-    # 【修复点 3】使用 db.get_or_404
     cmd = db.get_or_404(Command, id)
     db.session.delete(cmd)
     db.session.commit()
@@ -208,7 +236,6 @@ def add_group():
 @app.route('/groups/edit/<int:id>', methods=['POST'])
 @login_required
 def edit_group(id):
-    # 【修复点 4】使用 db.get_or_404
     group = db.get_or_404(Group, id)
     new_name = request.form.get('name')
     sort_order = request.form.get('sort_order', 0, type=int)
@@ -224,7 +251,6 @@ def edit_group(id):
 @app.route('/groups/delete/<int:id>')
 @login_required
 def delete_group(id):
-    # 【修复点 5】使用 db.get_or_404
     group = db.get_or_404(Group, id)
     try:
         # 手动清理命令 (双重保险)
