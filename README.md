@@ -1,7 +1,5 @@
-
-#### 2\. 运行容器 (生产模式)
-
-这是最完整的运行命令，包含数据持久化和密码配置：
+管理界面进行命令的管理，小鸡读取管理的命令，并输出
+#### 2\. 管理界面安装
 
 ```bash
 # 先创建一个存放数据的文件夹
@@ -15,7 +13,7 @@ docker run -d \
   -v $(pwd)/cmd_data:/app/data \
   ghcr.io/assast/cmd_manager:latest
   
-# 运行
+# 或者完整的运行
 docker run -d \
   --name my-cmd \
   --restart always \
@@ -33,11 +31,14 @@ docker run -d \
   * `-e ADMIN_PASSWORD="..."`: 设置管理员密码。不填默认123456
   * `-e SECRET_KEY="..."`: 设置防伪密钥，保证 Cookie 安全。不填会默认一个固定值01KATX9WSFP1T9C4JK26C29AQB，建议自己设置一个
 
-**小鸡安装**
+**小鸡一键脚本**
+```
 curl -fsSL https://raw.githubusercontent.com/assast/cmd_manager/refs/heads/main/install.sh -o cm_install.sh && chmod +x cm_install.sh && ./cm_install.sh admin 123456 http://127.0.0.1:5000
+```
 如果密码有特殊字符 比如有&、=等，请用 ""包裹密码。样例为
+```
 curl -fsSL https://raw.githubusercontent.com/assast/cmd_manager/refs/heads/main/install.sh -o cm_install.sh && chmod +x cm_install.sh && ./cm_install.sh admin "12345=6" http://127.0.0.1:5000
-
+```
 **界面示例：**
 ![](./static/WX20251125-090321@2x.png)
 ![](./static/WX20251125-090411@2x.png)
