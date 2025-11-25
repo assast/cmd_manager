@@ -7,10 +7,12 @@
 
 Cmd Manager 是一个轻量级的命令管理工具。你可以在漂亮的 Web 界面上录入、分组管理你的常用 Shell 命令，然后通过一行代码在任何服务器（小鸡）上唤出菜单，一键执行或复制命令。
 
-## 体验站点
-https://cmdmgr.lac.netlib.re
-用户名：admin
-密码：123456
+> **🔔 体验站点**
+>
+>   * 访问地址：`https://cmdmgr.lac.netlib.re`
+>   * 用户名：`admin`
+>   * 密码：`123456`
+>   * **注意：体验站点请勿修改密码！**
 ```commandline
 curl -fsSL https://raw.githubusercontent.com/assast/cmd_manager/refs/heads/main/install.sh -o cm_install.sh && chmod +x cm_install.sh && ./cm_install.sh admin 123456 https://cmdmgr.lac.netlib.re
 ```
