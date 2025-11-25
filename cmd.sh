@@ -22,7 +22,6 @@ DATA_FILE=$(mktemp)
 cleanup() {
     rm -f "$COOKIE_JAR" "$DATA_FILE"
 }
-# 确保在脚本退出时清理临时文件
 trap cleanup EXIT
 
 # 检查依赖
@@ -32,87 +31,42 @@ if ! command -v jq &> /dev/null; then
 fi
 
 # ------------------------------------------
-# URL 编码函数 (修复密码中 & # 等特殊字符问题)
-# ------------------------------------------
-url_encode() {
-    local data="$1"
-    # 使用 awk 来实现编码
-    # 替换所有非字母数字和非 '-' '.' '_' 的字符为 %XX 格式
-    echo "$data" | awk '
-        BEGIN {
-            ORS = ""
-            # 构建编码查找表
-            for (i = 0; i <= 255; i++) {
-                char = sprintf("%c", i)
-                # 保留字符: a-z A-Z 0-9 - . _
-                if (char ~ /[a-zA-Z0-9\-\._]/) {
-                    encoded[char] = char
-                } else {
-                    encoded[char] = sprintf("%%%02X", i)
-                }
-            }
-        }
-        {
-            # 遍历输入字符串的每一个字符并输出编码
-            for (i = 1; i <= length($0); i++) {
-                char = substr($0, i, 1)
-                printf "%s", encoded[char]
-            }
-            print ""
-        }
-    '
-}
-
-# ------------------------------------------
-# 编码处理和登录数据构造
-# ------------------------------------------
-ENCODED_PASSWORD=$(url_encode "$PASSWORD")
-LOGIN_DATA="username=$USERNAME&password=$ENCODED_PASSWORD"
-
-
 # 1. 登录
+# ------------------------------------------
 echo -e "${YELLOW}>> 正在尝试登录: $SERVER_URL/login (用户: $USERNAME)${NC}" >&2
-# 打印 POST 数据供调试
-# echo -e "${CYAN}POST Data: $LOGIN_DATA${NC}" >&2
 
-# 使用 --data-raw 确保发送已编码的字符串，-s 静默模式，-w 获取 HTTP 状态码
-# 增加 -v 选项来输出详细的 curl 响应头到 stderr，帮助调试
-HTTP_RESPONSE=$(curl -s -v -o /dev/null -w "%{http_code}" -c "$COOKIE_JAR" \
-    --data-raw "$LOGIN_DATA" \
-    "$SERVER_URL/login" 2>&1)
-HTTP_CODE=$(echo "$HTTP_RESPONSE" | tail -n 1) # 获取最后的 HTTP 状态码
+HTTP_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -c "$COOKIE_JAR" \
+    --data-urlencode "username=$USERNAME" \
+    --data-urlencode "password=$PASSWORD" \
+    "$SERVER_URL/login")
 
-if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "302" ]; then
-    echo -e "${RED}登录失败 ($HTTP_CODE)。请检查服务器状态，以及配置是否正确。${NC}" >&2
+if [ "$HTTP_RESPONSE" != "200" ] && [ "$HTTP_RESPONSE" != "302" ]; then
+    echo -e "${RED}登录失败 ($HTTP_RESPONSE)。请检查密码或服务器状态。${NC}" >&2
     exit 1
 fi
 
+# ------------------------------------------
 # 2. 获取数据
-echo -e "${YELLOW}>> 正在尝试获取数据: $SERVER_URL/api/list${NC}" >&2
-# 使用 -b 携带登录成功的 Cookie
-curl -s -b "$COOKIE_JAR" "$SERVER_URL/api/list" > "$DATA_FILE"
+# ------------------------------------------
+echo -e "${YELLOW}>> 正在尝试获取数据...${NC}" >&2
+
+curl -s -L -b "$COOKIE_JAR" "$SERVER_URL/api/list" > "$DATA_FILE"
 
 # 校验 JSON
 if ! jq -e . "$DATA_FILE" >/dev/null 2>&1; then
-    echo -e "${RED}数据获取失败,请检查用户名、密码、地址是否报错。${NC}" >&2
-
-    # 如果获取数据失败，打印服务器返回的原始内容
-    echo -e "${CYAN}--- 服务器返回原始内容 (可能为登录页或错误信息) ---${NC}" >&2
+    echo -e "${RED}数据获取失败。可能是登录后 Session 失效或密码依然不正确。${NC}" >&2
+    echo -e "${CYAN}--- 服务器返回内容 ---${NC}" >&2
     cat "$DATA_FILE" >&2
-    echo -e "${CYAN}------------------------------------------------${NC}" >&2
-
     exit 1
 fi
 
-# ================= 交互逻辑 (兼容 Bash 3.2+) =================
+# ================= 交互逻辑 =================
 
-# 读取分组名称到数组 (替代 mapfile)
 GRP_LIST=()
 while IFS= read -r line; do
     GRP_LIST+=("$line")
 done < <(jq -r '.[].group' "$DATA_FILE")
 
-# 判空
 if [ ${#GRP_LIST[@]} -eq 0 ]; then
     echo -e "${YELLOW}没有查询到分组数据。${NC}" >&2
     exit 0
@@ -129,19 +83,16 @@ done
 echo -ne "${YELLOW}输入序号: ${NC}" >&2
 read -r group_idx
 
-# 验证输入
 if ! [[ "$group_idx" =~ ^[0-9]+$ ]] || [ "$group_idx" -lt 1 ] || [ "$group_idx" -gt "${#GRP_LIST[@]}" ]; then
     echo -e "${RED}无效选择${NC}" >&2
     exit 1
 fi
 
-# 获取选中的分组名
 SELECTED_GROUP="${GRP_LIST[$((group_idx-1))]}"
 
 # === 步骤 2: 选择命令 ===
 echo -e "\n${CYAN}=== 分组 [${SELECTED_GROUP}] ===${NC}" >&2
 
-# 读取命令标题到数组
 TITLE_LIST=()
 while IFS= read -r line; do
     TITLE_LIST+=("$line")
@@ -169,31 +120,29 @@ echo -e "\n${BLUE}>>> 准备就绪:${NC}" >&2
 
 # 剪贴板支持
 COPIED=0
-# 检查是否在 macOS (pbcopy)
 if command -v pbcopy &> /dev/null; then
     echo -n "$CMD_CONTENT" | pbcopy
     COPIED=1
-# 检查是否在 Linux/WSL (xclip)
 elif command -v xclip &> /dev/null; then
-    # 使用 xclip -selection clipboard 复制到通用剪贴板
     echo -n "$CMD_CONTENT" | xclip -selection clipboard
     COPIED=1
-# 检查是否在 Windows Git Bash/WSL (clip.exe)
 elif command -v clip.exe &> /dev/null; then
     echo -n "$CMD_CONTENT" | clip.exe
     COPIED=1
 fi
 
-# 检查是否复制成功
 if [ $COPIED -eq 1 ]; then
     echo -e "${GREEN}✔ 已复制到剪贴板${NC}" >&2
 else
-    # 检查 stdout 是否被重定向。如果 stdout 被重定向（即被管道或捕获），则不打印到 stderr
-    # 这一判断可以防止重复输出，同时保留管道功能。
     if [ -t 1 ]; then
-        echo -e "${YELLOW}ℹ 无法访问剪贴板，请手动复制以下命令：${NC}" >&2
+        echo -e "${YELLOW}ℹ 无法访问剪贴板，请手动复制：${NC}" >&2
     fi
 fi
 
-# 最终输出命令 (Stdout) - 始终保留，这是脚本的核心输出，用于管道或命令替换。
+# --- 新增功能：在控制台醒目输出命令内容 ---
+echo -e "${CYAN}------------------------------------------------${NC}" >&2
+echo -e "${NC}$CMD_CONTENT${NC}" >&2
+echo -e "${CYAN}------------------------------------------------${NC}" >&2
+
+# 最终输出命令 (Stdout)，这行保留用于 eval 功能
 echo "$CMD_CONTENT"
