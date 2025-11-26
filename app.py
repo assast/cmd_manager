@@ -72,61 +72,63 @@ def init_db():
                 db.session.add(User(username=admin_user, password_hash=hashed_pw))
                 db.session.commit()
                 print(f"[初始化] 管理员 {admin_user} 创建成功")
+
+                # 2. 预置默认数据
+                default_data = [
+                    ("常用命令", 0, [
+                        ("查看端口占用", "lsof -i :8080", 0),
+                        ("解压 tar.gz", "tar -zxvf filename.tar.gz", 10),
+                        ("查看磁盘空间", "df -h", 20),
+                    ]),
+                    ("Docker", 10, [
+                        ("查看容器", "docker ps -a", 0),
+                        ("查看日志", "docker logs -f --tail=100 <id>", 1),
+                        ("进入容器", "docker exec -it <id> /bin/bash", 2),
+                    ]),
+                    ("Git", 20, [
+                        ("简略日志", "git log --oneline -n 10", 0),
+                        ("撤销修改", "git checkout .", 1),
+                    ])
+                ]
+
+                for g_name, g_sort, cmds in default_data:
+                    group = None
+                    # 尝试查找分组
+                    group = Group.query.filter_by(name=g_name).first()
+
+                    # 如果分组不存在，尝试创建
+                    if not group:
+                        try:
+                            group = Group(name=g_name, sort_order=g_sort)
+                            db.session.add(group)
+                            # flush 以获取 ID，如果此时有并发写入，这里会报错
+                            db.session.flush()
+                            db.session.commit()
+                            print(f"[初始化] 分组 {g_name} 创建成功")
+                        except IntegrityError:
+                            db.session.rollback()
+                            # 回滚后，说明被别的进程抢先创建了，重新查询获取该分组对象
+                            group = Group.query.filter_by(name=g_name).first()
+                            print(f"[初始化] 分组 {g_name} 并发跳过")
+
+                    # 确保拿到了分组对象后，再处理下面的命令
+                    if group:
+                        for c_title, c_content, c_sort in cmds:
+                            # 检查命令是否存在（避免重复添加）
+                            if not Command.query.filter_by(title=c_title, group_id=group.id).first():
+                                try:
+                                    cmd = Command(title=c_title, content=c_content, sort_order=c_sort,
+                                                  group_id=group.id)
+                                    db.session.add(cmd)
+                                    db.session.commit()
+                                except IntegrityError:
+                                    db.session.rollback()
+                                    # 命令冲突忽略即可
+                                    pass
+
             except IntegrityError:
                 db.session.rollback()
                 print(f"[初始化] 管理员 {admin_user} 已由其他进程创建，跳过")
-
-        # 2. 预置默认数据
-        default_data = [
-            ("常用命令", 0, [
-                ("查看端口占用", "lsof -i :8080", 0),
-                ("解压 tar.gz", "tar -zxvf filename.tar.gz", 10),
-                ("查看磁盘空间", "df -h", 20),
-            ]),
-            ("Docker", 10, [
-                ("查看容器", "docker ps -a", 0),
-                ("查看日志", "docker logs -f --tail=100 <id>", 1),
-                ("进入容器", "docker exec -it <id> /bin/bash", 2),
-            ]),
-            ("Git", 20, [
-                ("简略日志", "git log --oneline -n 10", 0),
-                ("撤销修改", "git checkout .", 1),
-            ])
-        ]
-
-        for g_name, g_sort, cmds in default_data:
-            group = None
-            # 尝试查找分组
-            group = Group.query.filter_by(name=g_name).first()
-
-            # 如果分组不存在，尝试创建
-            if not group:
-                try:
-                    group = Group(name=g_name, sort_order=g_sort)
-                    db.session.add(group)
-                    # flush 以获取 ID，如果此时有并发写入，这里会报错
-                    db.session.flush()
-                    db.session.commit()
-                    print(f"[初始化] 分组 {g_name} 创建成功")
-                except IntegrityError:
-                    db.session.rollback()
-                    # 回滚后，说明被别的进程抢先创建了，重新查询获取该分组对象
-                    group = Group.query.filter_by(name=g_name).first()
-                    print(f"[初始化] 分组 {g_name} 并发跳过")
-
-            # 确保拿到了分组对象后，再处理下面的命令
-            if group:
-                for c_title, c_content, c_sort in cmds:
-                    # 检查命令是否存在（避免重复添加）
-                    if not Command.query.filter_by(title=c_title, group_id=group.id).first():
-                        try:
-                            cmd = Command(title=c_title, content=c_content, sort_order=c_sort, group_id=group.id)
-                            db.session.add(cmd)
-                            db.session.commit()
-                        except IntegrityError:
-                            db.session.rollback()
-                            # 命令冲突忽略即可
-                            pass
 
         print("数据库初始化检查完成")
 
