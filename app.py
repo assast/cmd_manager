@@ -4,8 +4,8 @@ from flask import Flask, render_template, redirect, url_for, request, flash, jso
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import or_
-from sqlalchemy.exc import IntegrityError  # 【修改点】引入完整性错误异常
+from sqlalchemy import or_, text
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 app = Flask(__name__)
 
@@ -32,10 +32,7 @@ class Group(db.Model):
     __tablename__ = 'groups'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
-    # 新增排序字段，默认0，越小越靠前
     sort_order = db.Column(db.Integer, default=0)
-
-    # 关联查询时，让 commands 按 sort_order 排序
     commands = db.relationship('Command', backref='group', lazy=True,
                                order_by="[Command.sort_order, Command.id]",
                                cascade="all, delete-orphan")
@@ -46,8 +43,9 @@ class Command(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
     content = db.Column(db.Text, nullable=False)
-    # 新增排序字段
     sort_order = db.Column(db.Integer, default=0)
+    # 【新增字段】是否直接执行
+    is_execute = db.Column(db.Boolean, default=False)
     group_id = db.Column(db.Integer, db.ForeignKey('groups.id'), nullable=False)
 
 
@@ -56,84 +54,62 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 
-# --- 初始化 (并发安全版) ---
+# --- 初始化 (含自动迁移) ---
 def init_db():
     with app.app_context():
+        # 1. 创建表结构
         db.create_all()
 
-        # 1. 初始化管理员
+        # 2. 【核心升级逻辑】检查并自动迁移数据库字段
+        try:
+            # 尝试查询新字段，如果报错说明字段不存在，需要迁移
+            db.session.execute(text('SELECT is_execute FROM commands LIMIT 1'))
+        except OperationalError:
+            print(">>> 检测到旧版数据库，正在升级 schema (添加 is_execute 字段)...")
+            try:
+                # SQLite 添加列
+                with db.engine.connect() as conn:
+                    conn.execute(text('ALTER TABLE commands ADD COLUMN is_execute BOOLEAN DEFAULT 0'))
+                    conn.commit()
+                print(">>> 数据库升级成功！")
+            except Exception as e:
+                print(f">>> 数据库升级失败: {e}")
+
+        # 3. 初始化管理员
         admin_user = os.environ.get('ADMIN_USER', 'admin')
         admin_pass = os.environ.get('ADMIN_PASSWORD', '123456')
 
-        # 检查用户是否存在
         if not User.query.filter_by(username=admin_user).first():
             try:
                 hashed_pw = generate_password_hash(admin_pass)
                 db.session.add(User(username=admin_user, password_hash=hashed_pw))
                 db.session.commit()
                 print(f"[初始化] 管理员 {admin_user} 创建成功")
-
-                # 2. 预置默认数据
-                default_data = [
-                    ("常用命令", 0, [
-                        ("查看端口占用", "lsof -i :8080", 0),
-                        ("解压 tar.gz", "tar -zxvf filename.tar.gz", 10),
-                        ("查看磁盘空间", "df -h", 20),
-                    ]),
-                    ("Docker", 10, [
-                        ("查看容器", "docker ps -a", 0),
-                        ("查看日志", "docker logs -f --tail=100 <id>", 1),
-                        ("进入容器", "docker exec -it <id> /bin/bash", 2),
-                    ]),
-                    ("Git", 20, [
-                        ("简略日志", "git log --oneline -n 10", 0),
-                        ("撤销修改", "git checkout .", 1),
-                    ])
-                ]
-
-                for g_name, g_sort, cmds in default_data:
-                    group = None
-                    # 尝试查找分组
-                    group = Group.query.filter_by(name=g_name).first()
-
-                    # 如果分组不存在，尝试创建
-                    if not group:
-                        try:
-                            group = Group(name=g_name, sort_order=g_sort)
-                            db.session.add(group)
-                            # flush 以获取 ID，如果此时有并发写入，这里会报错
-                            db.session.flush()
-                            db.session.commit()
-                            print(f"[初始化] 分组 {g_name} 创建成功")
-                        except IntegrityError:
-                            db.session.rollback()
-                            # 回滚后，说明被别的进程抢先创建了，重新查询获取该分组对象
-                            group = Group.query.filter_by(name=g_name).first()
-                            print(f"[初始化] 分组 {g_name} 并发跳过")
-
-                    # 确保拿到了分组对象后，再处理下面的命令
-                    if group:
-                        for c_title, c_content, c_sort in cmds:
-                            # 检查命令是否存在（避免重复添加）
-                            if not Command.query.filter_by(title=c_title, group_id=group.id).first():
-                                try:
-                                    cmd = Command(title=c_title, content=c_content, sort_order=c_sort,
-                                                  group_id=group.id)
-                                    db.session.add(cmd)
-                                    db.session.commit()
-                                except IntegrityError:
-                                    db.session.rollback()
-                                    # 命令冲突忽略即可
-                                    pass
-
             except IntegrityError:
                 db.session.rollback()
-                print(f"[初始化] 管理员 {admin_user} 已由其他进程创建，跳过")
 
-        print("数据库初始化检查完成")
+        # 4. 预置数据 (仅当无分组时)
+        if not Group.query.first():
+            default_data = [
+                ("常用命令", 0, [
+                    ("查看端口占用", "lsof -i :8080", 0, False),
+                    ("查看磁盘空间", "df -h", 20, True), # 演示直接执行
+                ]),
+            ]
+            for g_name, g_sort, cmds in default_data:
+                try:
+                    group = Group(name=g_name, sort_order=g_sort)
+                    db.session.add(group)
+                    db.session.flush()
+                    for c_title, c_content, c_sort, c_exec in cmds:
+                        cmd = Command(title=c_title, content=c_content, sort_order=c_sort, is_execute=c_exec, group_id=group.id)
+                        db.session.add(cmd)
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
 
 
-# --- 主页路由 ---
+# --- 路由 ---
 
 @app.route('/')
 @login_required
@@ -141,7 +117,6 @@ def index():
     search_query = request.args.get('q', '').strip()
 
     if search_query:
-        # 搜索逻辑
         commands = Command.query.filter(
             or_(Command.title.contains(search_query),
                 Command.content.contains(search_query))
@@ -152,10 +127,8 @@ def index():
             if cmd.group not in groups_data:
                 groups_data[cmd.group] = []
             groups_data[cmd.group].append(cmd)
-
         display_data = sorted(groups_data.items(), key=lambda x: (x[0].sort_order, x[0].id))
     else:
-        # 正常展示
         all_groups = Group.query.order_by(Group.sort_order, Group.id).all()
         display_data = []
         for g in all_groups:
@@ -165,8 +138,7 @@ def index():
                 display_data.append((g, []))
 
     all_groups_list = Group.query.order_by(Group.sort_order, Group.id).all()
-    return render_template('index.html', display_data=display_data, all_groups=all_groups_list,
-                           search_query=search_query)
+    return render_template('index.html', display_data=display_data, all_groups=all_groups_list, search_query=search_query)
 
 
 @app.route('/command/add', methods=['POST'])
@@ -176,9 +148,11 @@ def add_command():
     title = request.form.get('title')
     content = request.form.get('content')
     sort_order = request.form.get('sort_order', 0, type=int)
+    # 获取 checkbox，选中为 'on'，否则为 None
+    is_execute = True if request.form.get('is_execute') else False
 
     if group_id and title and content:
-        cmd = Command(group_id=group_id, title=title, content=content, sort_order=sort_order)
+        cmd = Command(group_id=group_id, title=title, content=content, sort_order=sort_order, is_execute=is_execute)
         db.session.add(cmd)
         db.session.commit()
         flash('命令添加成功', 'success')
@@ -195,6 +169,8 @@ def edit_command(id):
     cmd.content = request.form.get('content')
     cmd.group_id = request.form.get('group_id')
     cmd.sort_order = request.form.get('sort_order', 0, type=int)
+    # 更新执行状态
+    cmd.is_execute = True if request.form.get('is_execute') else False
 
     db.session.commit()
     flash('命令已更新', 'success')
@@ -211,14 +187,13 @@ def delete_command(id):
     return redirect(url_for('index'))
 
 
-# --- 分组管理路由 ---
-
+# (分组管理、登录、修改密码路由保持不变，省略以节省空间，直接复用之前的即可)
+# ...
 @app.route('/groups')
 @login_required
 def manage_groups():
     groups = Group.query.order_by(Group.sort_order, Group.id).all()
     return render_template('groups.html', groups=groups)
-
 
 @app.route('/groups/add', methods=['POST'])
 @login_required
@@ -234,14 +209,12 @@ def add_group():
             flash('分组创建成功', 'success')
     return redirect(url_for('manage_groups'))
 
-
 @app.route('/groups/edit/<int:id>', methods=['POST'])
 @login_required
 def edit_group(id):
     group = db.get_or_404(Group, id)
     new_name = request.form.get('name')
     sort_order = request.form.get('sort_order', 0, type=int)
-
     if new_name:
         group.name = new_name
         group.sort_order = sort_order
@@ -249,13 +222,11 @@ def edit_group(id):
         flash('分组更新成功', 'success')
     return redirect(url_for('manage_groups'))
 
-
 @app.route('/groups/delete/<int:id>')
 @login_required
 def delete_group(id):
     group = db.get_or_404(Group, id)
     try:
-        # 手动清理命令 (双重保险)
         for cmd in group.commands:
             db.session.delete(cmd)
         db.session.delete(group)
@@ -265,9 +236,6 @@ def delete_group(id):
         db.session.rollback()
         flash(f'删除失败: {str(e)}', 'danger')
     return redirect(url_for('manage_groups'))
-
-
-# --- 认证与API ---
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -279,13 +247,11 @@ def login():
         flash('用户名或密码错误', 'danger')
     return render_template('login.html')
 
-
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
     return redirect(url_for('login'))
-
 
 @app.route('/change-password', methods=['GET', 'POST'])
 @login_required
@@ -294,22 +260,19 @@ def change_password():
         old = request.form.get('old_password')
         new = request.form.get('new_password')
         confirm = request.form.get('confirm_password')
-
         if not check_password_hash(current_user.password_hash, old):
             flash('旧密码错误', 'danger')
             return redirect(url_for('change_password'))
         if new != confirm or not new:
             flash('新密码不一致或为空', 'warning')
             return redirect(url_for('change_password'))
-
         current_user.password_hash = generate_password_hash(new)
         db.session.commit()
         flash('密码修改成功，请重新登录', 'success')
         logout_user()
         return redirect(url_for('login'))
-
     return render_template('change_password.html')
-
+# ...
 
 @app.route('/api/list')
 @login_required
@@ -318,10 +281,15 @@ def api_list():
     data = []
     for g in groups:
         if not g.commands: continue
-        cmds = [{'title': c.title, 'content': c.content} for c in g.commands]
+        cmds = []
+        for c in g.commands:
+            cmds.append({
+                'title': c.title,
+                'content': c.content,
+                'is_execute': c.is_execute # 【新增API字段】
+            })
         data.append({'group': g.name, 'commands': cmds})
     return jsonify(data)
-
 
 init_db()
 
