@@ -7,123 +7,127 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .cmd-font { font-family: "JetBrains Mono", Consolas, monospace; font-size: 0.85rem; }
-        .group-divider { border-bottom: 1px solid #e9ecef; margin-top: 20px; margin-bottom: 10px; padding-bottom: 5px; font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; color: #495057; }
-
-        /* 标签样式优化：禁止换行，字体设小 */
-        .badge-exec {
-            font-size: 0.65rem;
-            background-color: #ffc107;
-            color: #000;
-            padding: 1px 4px;
-            border-radius: 3px;
-            margin-left: 6px;
-            white-space: nowrap; /* 禁止标签换行 */
-            display: inline-block;
-            vertical-align: middle;
+        
+        /* === 分组标题 === */
+        .group-header {
+            display: flex;
+            align-items: center;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e9ecef;
         }
+        .group-title { font-size: 1.1rem; font-weight: 700; color: #343a40; margin-right: 10px; }
+        .group-count { background-color: #e9ecef; color: #495057; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: 600; }
 
-        /* 代码块容器 */
+        /* === 分组筛选栏 === */
+        .filter-bar {
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 5px;
+            margin-bottom: 20px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+        .filter-bar::-webkit-scrollbar { display: none; }
+
+        .filter-btn {
+            border: 1px solid #dee2e6;
+            background: #fff;
+            color: #495057;
+            border-radius: 20px;
+            padding: 6px 16px;
+            margin-right: 8px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .filter-btn:hover { background: #f8f9fa; border-color: #adb5bd; }
+        .filter-btn.active { background: #0d6efd; color: #fff; border-color: #0d6efd; box-shadow: 0 2px 5px rgba(13, 110, 253, 0.3); }
+
+        /* === 标签样式 === */
+        .badge-exec { font-size: 0.65rem; background-color: #ffc107; color: #000; padding: 1px 5px; border-radius: 3px; margin-left: 6px; white-space: nowrap; display: inline-block; vertical-align: middle; font-weight: 600; }
+
+        /* === 卡片与代码块 (核心修改) === */
+        /* 关键：给 card-body 相对定位，方便悬停时定位 */
+        .card-body { position: relative; }
+
         .code-block {
             background-color: #f8f9fa;
             border: 1px solid #dee2e6;
-            border-radius: 4px;
+            border-radius: 6px;
             position: relative;
-            margin-top: 5px;
+            margin-top: 8px;
             transition: all 0.2s;
+            z-index: 1;
         }
 
-        /* === 模式 1: 完整版 (默认) === */
         .code-content {
             margin: 0;
-            padding: 10px 35px 10px 10px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            word-break: break-all;
+            padding: 7px 35px 7px 10px; /* 紧凑的内边距 */
             color: #d63384;
-            line-height: 1.6;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        .code-content::-webkit-scrollbar { width: 6px; height: 6px; }
-        .code-content::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 3px; }
-        .code-content::-webkit-scrollbar-track { background: transparent; }
 
-        /* === 模式 2: 简洁版 === */
-        body.mode-simple .code-content {
-            white-space: pre;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            /* === 强制单行显示 === */
+            white-space: pre;        /* 保持换行符结构，不合并 */
+            overflow: hidden;        /* 隐藏多余内容 */
+            text-overflow: ellipsis; /* 显示省略号 */
             line-height: 24px;
-            height: 38px;
-            padding-top: 7px;
-            padding-bottom: 7px;
+            height: 38px;            /* 固定高度：1行 */
             display: block;
         }
 
-        /* 悬停展开特效 */
-        body.mode-simple .code-block:hover {
-            position: absolute;
-            top: 38px;
-            left: 10px;
-            right: 10px;
-            z-index: 999;
-            height: auto;
+        /* === 悬停展开特效 === */
+        .code-block:hover {
+            position: absolute;  /* 浮起 */
+            top: 38px;           /* 覆盖在原位置或者标题下方 */
+            left: 10px; right: 10px;
+            z-index: 999;        /* 最顶层 */
+            height: auto;        /* 高度自动 */
             background-color: #fff;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            border-color: #0d6efd;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15); /* 阴影 */
+            border-color: #0d6efd; /* 边框高亮 */
         }
 
-        body.mode-simple .code-block:hover .code-content {
+        .code-block:hover .code-content {
             height: auto;
-            white-space: pre-wrap;
+            white-space: pre-wrap; /* 悬停时允许换行 */
             overflow: visible;
-            max-height: 300px;
-            overflow-y: auto;
+            max-height: 300px;     /* 防止过高 */
+            overflow-y: auto;      /* 超出滚动 */
+
+            /* 美化滚动条 */
+            scrollbar-width: thin;
         }
+        .code-content::-webkit-scrollbar { width: 5px; height: 5px; }
+        .code-content::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 3px; }
+        .code-content::-webkit-scrollbar-track { background: transparent; }
 
         /* 复制按钮 */
         .btn-copy-abs {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: rgba(248, 249, 250, 0.9);
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            color: #6c757d;
-            padding: 2px 7px;
-            cursor: pointer;
-            z-index: 10;
+            position: absolute; top: 5px; right: 5px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #dee2e6; border-radius: 4px;
+            color: #6c757d; padding: 2px 7px; cursor: pointer; z-index: 10; transition: 0.2s;
         }
         .btn-copy-abs:hover { color: #0d6efd; background: #fff; border-color: #0d6efd; }
 
         /* 页脚 */
-        .app-footer { margin-top: 40px; padding-bottom: 20px; text-align: center; font-size: 0.8rem; color: #adb5bd; }
+        .app-footer { margin-top: 50px; padding-bottom: 20px; text-align: center; font-size: 0.8rem; color: #adb5bd; }
         .app-footer a { color: #6c757d; text-decoration: none; transition: 0.2s; }
         .app-footer a:hover { color: #0d6efd; }
-
-        .view-btn.active { background-color: #495057; color: #fff; border-color: #495057; }
     </style>
 </head>
 <body class="bg-light">
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-3 shadow-sm py-2">
     <div class="container">
-        <a class="navbar-brand fs-6" href="/"><i class="fas fa-terminal me-2"></i>CMD Manager</a>
+        <a class="navbar-brand fs-6 fw-bold" href="/"><i class="fas fa-terminal me-2"></i>CMD Manager</a>
 
         <div class="d-flex align-items-center">
-            <div class="btn-group btn-group-sm me-3" role="group">
-                <button type="button" class="btn btn-outline-light view-btn" id="btn-view-simple" onclick="setMode('simple')" title="简洁版">
-                    <i class="fas fa-bars"></i>
-                </button>
-                <button type="button" class="btn btn-outline-light view-btn" id="btn-view-full" onclick="setMode('full')" title="完整版">
-                    <i class="fas fa-align-left"></i>
-                </button>
-            </div>
-
             <a href="{{ url_for('manage_groups') }}" class="btn btn-outline-light btn-sm me-3" style="font-size: 0.8rem;">
-                <i class="fas fa-layer-group"></i> 分组
+                <i class="fas fa-layer-group"></i> 分组管理
             </a>
-
             <div class="dropdown">
                 <button class="btn btn-secondary btn-sm dropdown-toggle py-0" type="button" data-bs-toggle="dropdown" style="font-size: 0.8rem;">
                     <i class="fas fa-user-circle me-1"></i> {{ current_user.username }}
@@ -150,73 +154,88 @@
     <div class="row g-2 mb-3">
         <div class="col-md-9">
             <form action="{{ url_for('index') }}" method="GET" class="input-group input-group-sm">
-                <input type="search" name="q" class="form-control" placeholder="搜索..." value="{{ search_query }}">
+                <input type="search" name="q" class="form-control" placeholder="搜索命令..." value="{{ search_query }}">
                 <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i></button>
                 {% if search_query %}<a href="/" class="btn btn-secondary">重置</a>{% endif %}
             </form>
         </div>
         <div class="col-md-3 text-end">
             <button class="btn btn-success btn-sm w-100" data-bs-toggle="modal" data-bs-target="#addModal">
-                <i class="fas fa-plus-circle"></i> 新增
+                <i class="fas fa-plus-circle"></i> 新增命令
             </button>
         </div>
     </div>
 
+    {% if display_data and not search_query %}
+    <div class="filter-bar">
+        <button class="filter-btn active" onclick="filterGroup('all', this)">全部</button>
+        {% for group, commands in display_data %}
+            <button class="filter-btn" onclick="filterGroup('group-{{ group.id }}', this)">
+                {{ group.name }} <span style="opacity: 0.7; font-size: 0.8em;">{{ commands|length }}</span>
+            </button>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     {% if display_data %}
         {% for group, commands in display_data %}
-            <div class="group-divider">
-                <i class="far fa-folder-open me-2 text-warning"></i> {{ group.name }}
-                <span class="badge bg-secondary ms-2 rounded-pill" style="opacity: 0.7; font-size: 0.7em;">{{ commands|length }}</span>
-            </div>
+            <div id="group-{{ group.id }}" class="group-container">
+                <div class="group-header">
+                    <span class="group-title">{{ group.name }}</span>
+                    <span class="group-count">{{ commands|length }}</span>
+                </div>
 
-            <div class="row g-2">
-                {% for cmd in commands %}
-                <div class="col-lg-4 col-md-6">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-body p-2">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                <div class="d-flex align-items-center" style="max-width: 80%; overflow: hidden;">
-                                    <h6 class="fw-bold text-dark mb-0 small text-truncate" title="{{ cmd.title }}">
-                                        {{ cmd.title }}
-                                    </h6>
-                                    {% if cmd.is_execute %}
-                                    <span class="badge-exec flex-shrink-0" title="脚本中选择后将直接执行">
-                                        <i class="fas fa-bolt"></i> Exec
-                                    </span>
-                                    {% endif %}
+                <div class="row g-3">
+                    {% for cmd in commands %}
+                    <div class="col-lg-4 col-md-6">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body p-3">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <div class="d-flex align-items-center" style="max-width: 80%; overflow: hidden;">
+                                        <h6 class="fw-bold text-dark mb-0 small text-truncate" title="{{ cmd.title }}">
+                                            {{ cmd.title }}
+                                        </h6>
+                                        {% if cmd.is_execute %}
+                                        <span class="badge-exec flex-shrink-0" title="直接执行">
+                                            <i class="fas fa-bolt"></i> Exec
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="flex-shrink-0">
+                                        <button class="btn btn-sm btn-link text-primary p-0 me-2"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editModal"
+                                                data-id="{{ cmd.id }}"
+                                                data-title="{{ cmd.title }}"
+                                                data-content="{{ cmd.content }}"
+                                                data-group="{{ group.id }}"
+                                                data-sort="{{ cmd.sort_order }}"
+                                                data-execute="{{ 'true' if cmd.is_execute else 'false' }}"
+                                                style="font-size: 0.8rem;">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <a href="{{ url_for('delete_command', id=cmd.id) }}" class="text-danger p-0" style="font-size: 0.8rem;" onclick="return confirm('确认删除？')"><i class="fas fa-trash-alt"></i></a>
+                                    </div>
                                 </div>
 
-                                <div class="flex-shrink-0">
-                                    <button class="btn btn-sm btn-link text-primary p-0 me-2"
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#editModal"
-                                            data-id="{{ cmd.id }}"
-                                            data-title="{{ cmd.title }}"
-                                            data-content="{{ cmd.content }}"
-                                            data-group="{{ group.id }}"
-                                            data-sort="{{ cmd.sort_order }}"
-                                            data-execute="{{ 'true' if cmd.is_execute else 'false' }}"
-                                            style="font-size: 0.8rem;">
-                                        <i class="fas fa-edit"></i>
+                                <div class="code-block">
+                                    <pre class="code-content cmd-font">{{ cmd.content }}</pre>
+                                    <button class="btn-copy-abs" data-cmd="{{ cmd.content }}" onclick="copyCmd(this)" title="复制">
+                                        <i class="far fa-copy"></i>
                                     </button>
-                                    <a href="{{ url_for('delete_command', id=cmd.id) }}" class="text-danger p-0" style="font-size: 0.8rem;" onclick="return confirm('确认删除？')"><i class="fas fa-trash-alt"></i></a>
                                 </div>
-                            </div>
-
-                            <div class="code-block">
-                                <pre class="code-content cmd-font">{{ cmd.content }}</pre>
-                                <button class="btn-copy-abs" data-cmd="{{ cmd.content }}" onclick="copyCmd(this)" title="复制">
-                                    <i class="far fa-copy"></i>
-                                </button>
                             </div>
                         </div>
                     </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
         {% endfor %}
     {% else %}
-        <div class="text-center py-5 text-muted small">暂无数据</div>
+        <div class="text-center py-5 text-muted small">
+            <i class="fas fa-box-open fa-3x mb-3 text-secondary opacity-25"></i><br>
+            暂无数据
+        </div>
     {% endif %}
 
     <div class="app-footer">
@@ -228,129 +247,33 @@
     </div>
 </div>
 
-<div class="modal fade" id="addModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header py-2">
-                <h5 class="modal-title fs-6">新增命令</h5>
-                <button type="button" class="btn-close small" data-bs-dismiss="modal"></button>
-            </div>
-            <form action="{{ url_for('add_command') }}" method="POST">
-                <div class="modal-body p-3">
-                    <div class="row mb-2">
-                        <div class="col-8">
-                            <label class="form-label small mb-1">分组</label>
-                            <select name="group_id" class="form-select form-select-sm" required>
-                                {% for g in all_groups %}
-                                <option value="{{ g.id }}">{{ g.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-4">
-                            <label class="form-label small mb-1">排序权重</label>
-                            <input type="number" name="sort_order" class="form-control form-control-sm" value="0" placeholder="0">
-                        </div>
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label small mb-1">标题</label>
-                        <input type="text" name="title" class="form-control form-control-sm" required>
-                    </div>
+<div class="modal fade" id="addModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header py-2"><h5 class="modal-title fs-6">新增命令</h5><button type="button" class="btn-close small" data-bs-dismiss="modal"></button></div><form action="{{ url_for('add_command') }}" method="POST"><div class="modal-body p-3"><div class="row mb-2"><div class="col-8"><label class="form-label small mb-1">分组</label><select name="group_id" class="form-select form-select-sm" required>{% for g in all_groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select></div><div class="col-4"><label class="form-label small mb-1">排序权重</label><input type="number" name="sort_order" class="form-control form-control-sm" value="0" placeholder="0"></div></div><div class="mb-2"><label class="form-label small mb-1">标题</label><input type="text" name="title" class="form-control form-control-sm" required></div><div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="add-execute" name="is_execute"><label class="form-check-label small" for="add-execute">在脚本中直接执行</label></div><div class="mb-0"><label class="form-label small mb-1">内容</label><textarea name="content" class="form-control form-control-sm cmd-font" rows="4" required></textarea></div></div><div class="modal-footer py-1"><button type="submit" class="btn btn-success btn-sm">保存</button></div></form></div></div></div>
 
-                    <div class="form-check form-switch mb-2">
-                        <input class="form-check-input" type="checkbox" id="add-execute" name="is_execute">
-                        <label class="form-check-label small" for="add-execute">在脚本中直接执行 (不只是复制)</label>
-                    </div>
-
-                    <div class="mb-0">
-                        <label class="form-label small mb-1">内容</label>
-                        <textarea name="content" class="form-control form-control-sm cmd-font" rows="4" required></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer py-1">
-                    <button type="submit" class="btn btn-success btn-sm">保存</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="editModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header py-2">
-                <h5 class="modal-title fs-6">编辑命令</h5>
-                <button type="button" class="btn-close small" data-bs-dismiss="modal"></button>
-            </div>
-            <form id="editForm" method="POST">
-                <div class="modal-body p-3">
-                    <div class="row mb-2">
-                        <div class="col-8">
-                            <label class="form-label small mb-1">分组</label>
-                            <select name="group_id" id="edit-group" class="form-select form-select-sm" required>
-                                {% for g in all_groups %}
-                                <option value="{{ g.id }}">{{ g.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-4">
-                            <label class="form-label small mb-1">排序权重</label>
-                            <input type="number" name="sort_order" id="edit-sort" class="form-control form-control-sm" value="0">
-                        </div>
-                    </div>
-                    <div class="mb-2">
-                        <label class="form-label small mb-1">标题</label>
-                        <input type="text" name="title" id="edit-title" class="form-control form-control-sm" required>
-                    </div>
-
-                    <div class="form-check form-switch mb-2">
-                        <input class="form-check-input" type="checkbox" id="edit-execute" name="is_execute">
-                        <label class="form-check-label small" for="edit-execute">在脚本中直接执行</label>
-                    </div>
-
-                    <div class="mb-0">
-                        <label class="form-label small mb-1">内容</label>
-                        <textarea name="content" id="edit-content" class="form-control form-control-sm cmd-font" rows="4" required></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer py-1">
-                    <button type="submit" class="btn btn-primary btn-sm">更新</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+<div class="modal fade" id="editModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header py-2"><h5 class="modal-title fs-6">编辑命令</h5><button type="button" class="btn-close small" data-bs-dismiss="modal"></button></div><form id="editForm" method="POST"><div class="modal-body p-3"><div class="row mb-2"><div class="col-8"><label class="form-label small mb-1">分组</label><select name="group_id" id="edit-group" class="form-select form-select-sm" required>{% for g in all_groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select></div><div class="col-4"><label class="form-label small mb-1">排序权重</label><input type="number" name="sort_order" id="edit-sort" class="form-control form-control-sm" value="0"></div></div><div class="mb-2"><label class="form-label small mb-1">标题</label><input type="text" name="title" id="edit-title" class="form-control form-control-sm" required></div><div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" id="edit-execute" name="is_execute"><label class="form-check-label small" for="edit-execute">在脚本中直接执行</label></div><div class="mb-0"><label class="form-label small mb-1">内容</label><textarea name="content" id="edit-content" class="form-control form-control-sm cmd-font" rows="4" required></textarea></div></div><div class="modal-footer py-1"><button type="submit" class="btn btn-primary btn-sm">更新</button></div></form></div></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const savedMode = localStorage.getItem('viewMode') || 'full';
-        setMode(savedMode);
-    });
-
-    function setMode(mode) {
-        const btnSimple = document.getElementById('btn-view-simple');
-        const btnFull = document.getElementById('btn-view-full');
-
-        if (mode === 'simple') {
-            document.body.classList.add('mode-simple');
-            btnSimple.classList.add('active');
-            btnFull.classList.remove('active');
-        } else {
-            document.body.classList.remove('mode-simple');
-            btnFull.classList.add('active');
-            btnSimple.classList.remove('active');
-        }
-        localStorage.setItem('viewMode', mode);
+    // === 分组筛选 ===
+    function filterGroup(targetId, btn) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const groups = document.querySelectorAll('.group-container');
+        groups.forEach(group => {
+            if (targetId === 'all') {
+                group.style.display = 'block';
+            } else {
+                group.style.display = (group.id === targetId) ? 'block' : 'none';
+            }
+        });
     }
 
+    // 复制功能
     function copyCmd(btn) {
         const text = btn.getAttribute('data-cmd');
         navigator.clipboard.writeText(text).then(() => {
             const icon = btn.querySelector('i');
-
             icon.className = 'fas fa-check text-success';
             btn.style.borderColor = '#198754';
-
             setTimeout(() => {
                 icon.className = 'far fa-copy';
                 btn.style.borderColor = '#dee2e6';
@@ -361,6 +284,7 @@
         });
     }
 
+    // 编辑赋值
     const editModal = document.getElementById('editModal');
     editModal.addEventListener('show.bs.modal', event => {
         const button = event.relatedTarget;
@@ -368,10 +292,8 @@
         document.getElementById('edit-content').value = button.getAttribute('data-content');
         document.getElementById('edit-group').value = button.getAttribute('data-group');
         document.getElementById('edit-sort').value = button.getAttribute('data-sort');
-
         const isExec = button.getAttribute('data-execute') === 'true';
         document.getElementById('edit-execute').checked = isExec;
-
         document.getElementById('editForm').action = '/command/edit/' + button.getAttribute('data-id');
     });
 </script>
