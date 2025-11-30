@@ -37,35 +37,21 @@
         .code-content::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 3px; }
         .code-content::-webkit-scrollbar-track { background: transparent; }
 
-        /* === 模式 2: 简洁版 (智能 <=2行全显，>2行截断) === */
+        /* === 模式 2: 简洁版 (只展示1行，无省略号) === */
         body.mode-simple .code-content {
             white-space: pre;        /* 保持换行结构 */
-            overflow: hidden;        /* 超过高度隐藏 */
-            text-overflow: ellipsis; /* 单行过长省略 */
+            overflow: hidden;        /* 切掉多余部分 */
+            text-overflow: ellipsis; /* 单行文本过长显示省略号 */
 
             line-height: 24px;       /* 固定行高 */
-
-            /* 计算高度: 2行 * 24px + 7px上补白 + 7px下补白 = 62px */
-            max-height: 62px;
-            height: auto;            /* 高度自适应，1行时就只占1行高度 */
+            height: 38px;            /* 24px文字 + 7px上补白 + 7px下补白 = 刚好1行 */
 
             padding-top: 7px;
             padding-bottom: 7px;
             display: block;
         }
 
-        /* 只有行数 > 2 (带有 is-truncated 类) 才显示 ...... */
-        body.mode-simple .code-block.is-truncated::after {
-            content: "......";
-            display: block;
-            color: #adb5bd;
-            font-weight: bold;
-            letter-spacing: 2px;
-            line-height: 10px;
-            padding-left: 10px;
-            padding-bottom: 6px;
-            font-size: 14px;
-        }
+        /* (已删除 ...... 的伪元素样式) */
 
         /* 复制按钮 */
         .btn-copy-abs {
@@ -185,8 +171,7 @@
                                 </div>
                             </div>
 
-                            {% set line_count = cmd.content.strip().split('\n') | length %}
-                            <div class="code-block {% if line_count > 2 %}is-truncated{% endif %}">
+                            <div class="code-block">
                                 <pre class="code-content cmd-font">{{ cmd.content }}</pre>
                                 <button class="btn-copy-abs" data-cmd="{{ cmd.content }}" onclick="copyCmd(this)" title="复制">
                                     <i class="far fa-copy"></i>
