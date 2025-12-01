@@ -147,9 +147,12 @@ cm
 ### 3\. 界面预览
 
 **Web 管理界面：**
-![](static/WX20251125-090321@2x.png)
+
+![](https://thumbs2.imgbox.com/2e/83/3YSttOZI_t.png)
+
 **终端交互菜单：**
-![](static/WX20251125-090411@2x.png)
+
+![](https://thumbs2.imgbox.com/8a/de/abyo8Mmo_t.png)
 
 -----
 
