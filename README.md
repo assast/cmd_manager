@@ -153,7 +153,7 @@ cm
 
 **终端交互菜单：**
 
-![](https://thumbs2.imgbox.com/0e/ff/wp94pF7h_t.png)
+![](https://thumbs2.imgbox.com/0b/0b/T7rpnBHI_t.png)
 
 -----
 
