@@ -12,7 +12,7 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 YELLOW='\033[1;33m'
-NC='\033[0m'
+NC='\033[0m' # No Color
 
 COOKIE_JAR=$(mktemp)
 DATA_FILE=$(mktemp)
@@ -53,7 +53,11 @@ fetch_data
 # ================= 交互主循环 =================
 while true; do
     clear
+    # === 顶部 Header ===
     echo -e "${CYAN}=== CMD Manager ===${NC}"
+    echo -e "${BLUE}  Developed by assast${NC}"
+    echo -e "${BLUE}  https://github.com/assast/cmd_manager${NC}"
+    echo "" # 空一行
 
     # 获取分组列表
     GRP_LIST=()
@@ -136,7 +140,7 @@ while true; do
         echo -e "${NC}$CMD_CONTENT${NC}"
         echo -e "${CYAN}------------------------------------------------${NC}"
 
-        # === 核心修改逻辑 ===
+        # === 执行逻辑 ===
         if [ "$IS_EXEC" == "true" ]; then
             # 直接执行，无需确认
             echo -e "${YELLOW}>>> ⚡ 正在直接执行...${NC}\n"
