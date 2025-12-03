@@ -56,7 +56,7 @@ while true; do
     # === 顶部 Header ===
     echo -e "${CYAN}=== CMD Manager ===${NC}"
     echo -e "${BLUE}  Developed by assast${NC}"
-    echo -e "${BLUE}  https://github.com/assast/cmd_manager${NC}"
+    echo -e "${BLUE}  项目地址：https://github.com/assast/cmd_manager${NC}"
     echo "" # 空一行
 
     # 获取分组列表
