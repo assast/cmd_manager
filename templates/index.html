@@ -20,16 +20,14 @@
         .group-title { font-size: 1.1rem; font-weight: 700; color: #343a40; margin-right: 10px; }
         .group-count { background-color: #e9ecef; color: #495057; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: 600; }
 
-        /* === 分组筛选栏 === */
+        /* === 分组筛选栏 (核心修改：改为自动换行) === */
         .filter-bar {
-            overflow-x: auto;
-            white-space: nowrap;
-            padding-bottom: 5px;
+            display: flex;          /* 使用 Flex 布局 */
+            flex-wrap: wrap;        /* 允许换行 */
+            gap: 8px;               /* 按钮之间的间距 */
             margin-bottom: 20px;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
+            padding-bottom: 5px;
         }
-        .filter-bar::-webkit-scrollbar { display: none; }
 
         .filter-btn {
             border: 1px solid #dee2e6;
@@ -37,11 +35,12 @@
             color: #495057;
             border-radius: 20px;
             padding: 6px 16px;
-            margin-right: 8px;
+            /* margin-right: 8px;  <-- 移除这个，改用 gap 控制间距 */
             font-size: 0.9rem;
             transition: all 0.2s;
             display: inline-block;
             cursor: pointer;
+            white-space: nowrap; /* 防止按钮内部文字换行 */
         }
         .filter-btn:hover { background: #f8f9fa; border-color: #adb5bd; }
         .filter-btn.active { background: #0d6efd; color: #fff; border-color: #0d6efd; box-shadow: 0 2px 5px rgba(13, 110, 253, 0.3); }
@@ -49,8 +48,7 @@
         /* === 标签样式 === */
         .badge-exec { font-size: 0.65rem; background-color: #ffc107; color: #000; padding: 1px 5px; border-radius: 3px; margin-left: 6px; white-space: nowrap; display: inline-block; vertical-align: middle; font-weight: 600; }
 
-        /* === 卡片与代码块 (核心修改) === */
-        /* 关键：给 card-body 相对定位，方便悬停时定位 */
+        /* === 卡片与代码块 === */
         .card-body { position: relative; }
 
         .code-block {
@@ -65,38 +63,34 @@
 
         .code-content {
             margin: 0;
-            padding: 7px 35px 7px 10px; /* 紧凑的内边距 */
+            padding: 7px 35px 7px 10px;
             color: #d63384;
-
-            /* === 强制单行显示 === */
-            white-space: pre;        /* 保持换行符结构，不合并 */
-            overflow: hidden;        /* 隐藏多余内容 */
-            text-overflow: ellipsis; /* 显示省略号 */
+            white-space: pre;
+            overflow: hidden;
+            text-overflow: ellipsis;
             line-height: 24px;
-            height: 38px;            /* 固定高度：1行 */
+            height: 38px;
             display: block;
         }
 
         /* === 悬停展开特效 === */
         .code-block:hover {
-            position: absolute;  /* 浮起 */
-            top: 38px;           /* 覆盖在原位置或者标题下方 */
+            position: absolute;
+            top: 38px;
             left: 10px; right: 10px;
-            z-index: 999;        /* 最顶层 */
-            height: auto;        /* 高度自动 */
+            z-index: 999;
+            height: auto;
             background-color: #fff;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15); /* 阴影 */
-            border-color: #0d6efd; /* 边框高亮 */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            border-color: #0d6efd;
         }
 
         .code-block:hover .code-content {
             height: auto;
-            white-space: pre-wrap; /* 悬停时允许换行 */
+            white-space: pre-wrap;
             overflow: visible;
-            max-height: 300px;     /* 防止过高 */
-            overflow-y: auto;      /* 超出滚动 */
-
-            /* 美化滚动条 */
+            max-height: 300px;
+            overflow-y: auto;
             scrollbar-width: thin;
         }
         .code-content::-webkit-scrollbar { width: 5px; height: 5px; }
