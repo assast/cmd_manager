@@ -5,13 +5,13 @@
 
 Cmd Manager 是一个轻量级、私有化的命令管理工具。你可以在现代化的 Web 界面上录入、分组、排序你的常用 Shell 命令，然后通过一行代码在任何服务器（小鸡）上唤出交互式菜单，实现命令的一键复制或**直接执行**。
 
-  
-
+已经内置50+脚本
+![](https://thumbs2.imgbox.com/0b/0b/T7rpnBHI_t.png)
 -----
 
-## 🎮 立即体验 (Demo)
+## 🎮 立即体验
 
-想先试试效果？无需部署，直接在你的终端运行以下命令即可体验客户端交互：
+无需部署，直接在你的终端运行以下命令即可体验客户端交互：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/assast/cmd_manager/refs/heads/main/install.sh -o cm_install.sh && chmod +x cm_install.sh && ./cm_install.sh admin 123456 https://cmdmgr.lac.netlib.re
@@ -45,6 +45,7 @@ curl -fsSL https://raw.githubusercontent.com/assast/cmd_manager/refs/heads/main/
       * 账号密码哈希加密存储。
 
 -----
+# 自建方案
 
 ## 🛠 第一步：服务端部署 (Docker)
 
@@ -148,11 +149,12 @@ cm
 
 **Web 管理界面：**
 
-![](https://thumbs2.imgbox.com/2e/83/3YSttOZI_t.png)
+![](https://thumbs2.imgbox.com/cf/39/JtKI7Uci_t.png)
+![](https://thumbs2.imgbox.com/68/26/AuDfOjXt_t.png)
 
 **终端交互菜单：**
 
-![](https://thumbs2.imgbox.com/8a/de/abyo8Mmo_t.png)
+![](https://thumbs2.imgbox.com/0b/0b/T7rpnBHI_t.png)
 
 -----
 
