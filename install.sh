@@ -72,7 +72,7 @@ done < "$TEMP_DOWNLOAD"
 
 echo "📦 安装到 $TARGET_PATH ..."
 $SUDO_CMD mv "$TEMP_CONFIG" "$TARGET_PATH"
-$SUDO_CMD chmod +x "$TARGET_PATH"
+$SUDO_CMD chmod 777 "$TARGET_PATH"
 rm -f "$TEMP_DOWNLOAD"
 
 if [ -x "$TARGET_PATH" ]; then
