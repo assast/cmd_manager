@@ -20,11 +20,11 @@
         .group-title { font-size: 1.1rem; font-weight: 700; color: #343a40; margin-right: 10px; }
         .group-count { background-color: #e9ecef; color: #495057; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: 600; }
 
-        /* === 修复点：分组筛选栏 (改回自动换行) === */
+        /* === 分组筛选栏 === */
         .filter-bar {
-            display: flex;          /* 使用 Flex 布局 */
-            flex-wrap: wrap;        /* 允许自动换行 */
-            gap: 8px;               /* 按钮间距 */
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
             padding-bottom: 5px;
             margin-bottom: 20px;
         }
@@ -35,12 +35,11 @@
             color: #495057;
             border-radius: 20px;
             padding: 6px 16px;
-            /* margin-right: 8px; 已由 gap 替代 */
             font-size: 0.9rem;
             transition: all 0.2s;
             display: inline-block;
             cursor: pointer;
-            white-space: nowrap; /* 按钮内文字不换行 */
+            white-space: nowrap;
         }
         .filter-btn:hover { background: #f8f9fa; border-color: #adb5bd; }
         .filter-btn.active { background: #0d6efd; color: #fff; border-color: #0d6efd; box-shadow: 0 2px 5px rgba(13, 110, 253, 0.3); }
@@ -164,9 +163,9 @@
 
     {% if display_data and not search_query %}
     <div class="filter-bar">
-        <button class="filter-btn active" onclick="filterGroup('all', this)">全部</button>
+        <button class="filter-btn active" data-target="all" onclick="filterGroup('all', this)">全部</button>
         {% for group, commands in display_data %}
-            <button class="filter-btn" onclick="filterGroup('group-{{ group.id }}', this)">
+            <button class="filter-btn" data-target="group-{{ group.id }}" onclick="filterGroup('group-{{ group.id }}', this)">
                 {{ group.name }} <span style="opacity: 0.7; font-size: 0.8em;">{{ commands|length }}</span>
             </button>
         {% endfor %}
@@ -221,7 +220,7 @@
                                                 style="font-size: 0.8rem;">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <a href="{{ url_for('delete_command', id=cmd.id) }}" class="text-danger p-0" style="font-size: 0.8rem;" onclick="return confirm('确认删除？')"><i class="fas fa-trash-alt"></i></a>
+                                        <a href="{{ url_for('delete_command', id=cmd.id) }}" class="text-danger p-0 save-scroll" style="font-size: 0.8rem;" onclick="return confirm('确认删除？')"><i class="fas fa-trash-alt"></i></a>
                                     </div>
                                 </div>
 
@@ -261,7 +260,7 @@
                 <h5 class="modal-title fs-6">新增命令</h5>
                 <button type="button" class="btn-close small" data-bs-dismiss="modal"></button>
             </div>
-            <form action="{{ url_for('add_command') }}" method="POST" id="addForm">
+            <form action="{{ url_for('add_command') }}" method="POST" id="addForm" class="save-scroll-form">
                 <div class="modal-body p-3">
                     <div class="row mb-2">
                         <div class="col-8">
@@ -307,7 +306,7 @@
                 <h5 class="modal-title fs-6">编辑命令</h5>
                 <button type="button" class="btn-close small" data-bs-dismiss="modal"></button>
             </div>
-            <form id="editForm" method="POST">
+            <form id="editForm" method="POST" class="save-scroll-form">
                 <div class="modal-body p-3">
                     <div class="row mb-2">
                         <div class="col-8">
@@ -348,14 +347,59 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    // 实例化新增模态框对象
     let addModalInstance = null;
+
     document.addEventListener('DOMContentLoaded', () => {
         addModalInstance = new bootstrap.Modal(document.getElementById('addModal'));
+
+        // === 核心逻辑：恢复筛选状态 ===
+        const savedFilter = localStorage.getItem('active_filter_id') || 'all';
+        // 查找对应的按钮
+        const targetBtn = document.querySelector(`.filter-btn[data-target="${savedFilter}"]`);
+        if (targetBtn) {
+            // 执行筛选
+            filterGroup(savedFilter, targetBtn);
+        }
+
+        // === 核心逻辑：恢复滚动位置 ===
+        const scrollPos = localStorage.getItem('scroll_pos');
+        if (scrollPos) {
+            // 延时一点点，等待DOM渲染和筛选应用完毕
+            setTimeout(() => {
+                window.scrollTo(0, parseInt(scrollPos));
+                localStorage.removeItem('scroll_pos'); // 恢复一次后清除
+            }, 50);
+        }
     });
 
+    // 监听所有提交表单的动作，保存滚动位置
+    document.querySelectorAll('.save-scroll-form').forEach(form => {
+        form.addEventListener('submit', () => {
+            localStorage.setItem('scroll_pos', window.scrollY);
+        });
+    });
+
+    // 监听删除链接，保存滚动位置
+    document.querySelectorAll('.save-scroll').forEach(link => {
+        link.addEventListener('click', () => {
+            localStorage.setItem('scroll_pos', window.scrollY);
+        });
+    });
+
+    // === 重置并打开新增模态框 (智能预填分组) ===
     function resetAddModal() {
         document.getElementById('addForm').reset();
         document.getElementById('add-execute').checked = false;
+
+        // 智能逻辑：如果当前筛选了某个分组，新增时默认选中该分组
+        const currentFilter = localStorage.getItem('active_filter_id');
+        if (currentFilter && currentFilter.startsWith('group-')) {
+            const groupId = currentFilter.replace('group-', '');
+            const select = document.getElementById('add-group');
+            if (select) select.value = groupId;
+        }
+
         addModalInstance.show();
     }
 
@@ -375,9 +419,16 @@
         addModalInstance.show();
     }
 
+    // === 分组筛选 ===
     function filterGroup(targetId, btn) {
+        // 1. 记录状态到本地存储
+        localStorage.setItem('active_filter_id', targetId);
+
+        // 2. 切换按钮样式
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
+
+        // 3. 隐藏/显示 DOM
         const groups = document.querySelectorAll('.group-container');
         groups.forEach(group => {
             if (targetId === 'all') {
