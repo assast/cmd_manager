@@ -27,7 +27,6 @@ if ! command -v jq &> /dev/null; then
 fi
 
 # 1. 登录
-# echo -e "${YELLOW}>> 登录中...${NC}"
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -c "$COOKIE_JAR" \
     --data-urlencode "username=$USERNAME" \
     --data-urlencode "password=$PASSWORD" \
@@ -98,7 +97,6 @@ while true; do
         echo -e "${CYAN}=== [${SELECTED_GROUP}] ===${NC}"
 
         # 获取该分组下的命令
-        # 格式: "Title Name|true"
         CMD_LIST=()
         while IFS= read -r line; do CMD_LIST+=("$line"); done < <(jq -r --arg g "$SELECTED_GROUP" '.[] | select(.group == $g) | .commands[] | "\(.title)|\(.is_execute)"' "$DATA_FILE")
 
@@ -108,7 +106,6 @@ while true; do
             is_exec="${item#*|}"
 
             icon=""
-            # 如果是直接执行，显示闪电图标提醒
             if [ "$is_exec" == "true" ]; then icon="${YELLOW}⚡${NC}"; fi
 
             echo -e "${GREEN}$j)${NC} $title $icon"
@@ -120,7 +117,7 @@ while true; do
         read -r cmd_idx
 
         if [ "$cmd_idx" == "0" ]; then
-            break # 跳出子循环，回到分组选择
+            break # 跳出子循环
         fi
 
         if ! [[ "$cmd_idx" =~ ^[0-9]+$ ]] || [ "$cmd_idx" -lt 1 ] || [ "$cmd_idx" -gt "${#CMD_LIST[@]}" ]; then
@@ -136,14 +133,20 @@ while true; do
         CMD_CONTENT=$(echo "$RAW_JSON" | jq -r '.content')
         IS_EXEC=$(echo "$RAW_JSON" | jq -r '.is_execute')
 
+        # === 核心修复区：清理命令内容 ===
+        # 1. 移除 Windows 换行符 \r (这是最常见的报错原因)
+        CMD_CONTENT=$(echo "$CMD_CONTENT" | tr -d '\r')
+        # 2. 移除尾部的空格和换行符 (使用 sed)
+        CMD_CONTENT=$(echo "$CMD_CONTENT" | sed -e 's/[[:space:]]*$//')
+
         echo -e "\n${CYAN}------------------------------------------------${NC}"
         echo -e "${NC}$CMD_CONTENT${NC}"
         echo -e "${CYAN}------------------------------------------------${NC}"
 
         # === 执行逻辑 ===
         if [ "$IS_EXEC" == "true" ]; then
-            # 直接执行，无需确认
             echo -e "${YELLOW}>>> ⚡ 正在直接执行...${NC}\n"
+            # 使用 eval 执行清理后的命令
             eval "$CMD_CONTENT"
             echo -e "\n${GREEN}>>> 执行完毕。${NC}"
         else
