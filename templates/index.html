@@ -8,41 +8,26 @@
     <style>
         .cmd-font { font-family: "JetBrains Mono", Consolas, monospace; font-size: 0.85rem; }
 
-        /* === 修复点：分组标题样式加固 === */
+        /* === 分组标题 === */
         .group-header {
             display: flex;
             align-items: center;
-            margin-top: 35px;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #dee2e6; /* 加深下划线颜色 */
+            margin-top: 30px;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e9ecef;
         }
-        .group-title {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: #212529;
-            margin-right: 12px;
-        }
-        .group-count {
-            background-color: #e9ecef;
-            color: #495057;
-            font-size: 0.75rem;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-weight: 600;
-            vertical-align: middle;
-        }
+        .group-title { font-size: 1.1rem; font-weight: 700; color: #343a40; margin-right: 10px; }
+        .group-count { background-color: #e9ecef; color: #495057; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: 600; }
 
-        /* === 分组筛选栏 === */
+        /* === 修复点：分组筛选栏 (改回自动换行) === */
         .filter-bar {
-            overflow-x: auto;
-            white-space: nowrap;
+            display: flex;          /* 使用 Flex 布局 */
+            flex-wrap: wrap;        /* 允许自动换行 */
+            gap: 8px;               /* 按钮间距 */
             padding-bottom: 5px;
-            margin-bottom: 25px;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
+            margin-bottom: 20px;
         }
-        .filter-bar::-webkit-scrollbar { display: none; }
 
         .filter-btn {
             border: 1px solid #dee2e6;
@@ -50,11 +35,12 @@
             color: #495057;
             border-radius: 20px;
             padding: 6px 16px;
-            margin-right: 8px;
+            /* margin-right: 8px; 已由 gap 替代 */
             font-size: 0.9rem;
             transition: all 0.2s;
             display: inline-block;
             cursor: pointer;
+            white-space: nowrap; /* 按钮内文字不换行 */
         }
         .filter-btn:hover { background: #f8f9fa; border-color: #adb5bd; }
         .filter-btn.active { background: #0d6efd; color: #fff; border-color: #0d6efd; box-shadow: 0 2px 5px rgba(13, 110, 253, 0.3); }
@@ -79,6 +65,8 @@
             margin: 0;
             padding: 7px 35px 7px 10px;
             color: #d63384;
+
+            /* 强制单行显示 */
             white-space: pre;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -360,20 +348,17 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // 实例化新增模态框对象
     let addModalInstance = null;
     document.addEventListener('DOMContentLoaded', () => {
         addModalInstance = new bootstrap.Modal(document.getElementById('addModal'));
     });
 
-    // 重置并打开新增模态框
     function resetAddModal() {
         document.getElementById('addForm').reset();
         document.getElementById('add-execute').checked = false;
         addModalInstance.show();
     }
 
-    // 克隆命令
     function duplicateCmd(btn) {
         const title = btn.getAttribute('data-title');
         const content = btn.getAttribute('data-content');
@@ -390,7 +375,6 @@
         addModalInstance.show();
     }
 
-    // 分组筛选
     function filterGroup(targetId, btn) {
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
@@ -404,7 +388,6 @@
         });
     }
 
-    // 复制功能
     function copyCmd(btn) {
         const text = btn.getAttribute('data-cmd');
         navigator.clipboard.writeText(text).then(() => {
@@ -421,7 +404,6 @@
         });
     }
 
-    // 编辑赋值
     const editModal = document.getElementById('editModal');
     editModal.addEventListener('show.bs.modal', event => {
         const button = event.relatedTarget;
