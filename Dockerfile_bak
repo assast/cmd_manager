@@ -9,27 +9,6 @@ WORKDIR /app
 # PYTHONUNBUFFERED: 保证日志直接输出到 Docker 控制台，不缓存
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-# 设置时区
-ENV TZ=Asia/Shanghai
-
-# --- 新增部分开始: 安装系统依赖和 Cloudflared ---
-
-# 1. 安装下载工具 curl 和证书 ca-certificates (Debian系必须)
-# 2. 清理 apt 缓存以减小镜像体积
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-# 3. 下载并安装 cloudflared
-# 注意: 这里使用的是 amd64 架构，如果你是在 ARM (如 M1/M2 Mac 或 树莓派) 上构建，
-# 请将链接中的 'amd64' 替换为 'arm64'
-RUN curl -L --output cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 && \
-    mv cloudflared /usr/local/bin/cloudflared && \
-    chmod +x /usr/local/bin/cloudflared && \
-    cloudflared --version
-
-# --- 新增部分结束 ---
 
 # 1. 先只复制依赖文件 (利用 Docker 缓存机制加速构建)
 COPY requirements.txt .
@@ -49,6 +28,7 @@ RUN mkdir -p /app/data
 # 指向 /app/data 目录，确保数据库文件持久化
 ENV SQLALCHEMY_DATABASE_URI="sqlite:////app/data/database.db"
 ENV SECRET_KEY=01KATX9WSFP1T9C4JK26C29AQB
+ENV TZ=Asia/Shanghai
 
 # 暴露 5000 端口
 EXPOSE 5000
