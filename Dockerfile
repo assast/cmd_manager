@@ -53,8 +53,11 @@ ENV SECRET_KEY=01KATX9WSFP1T9C4JK26C29AQB
 # 暴露 5000 端口
 EXPOSE 5000
 
-# 启动命令 (使用 Gunicorn 生产级服务器)
-# -w 2: 开启 2 个工作进程 (适合大多数轻量应用)
-# -b 0.0.0.0:5000: 监听所有 IP
-# --access-logfile -: 将访问日志输出到 Docker logs
-CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:5000", "--access-logfile", "-", "app:app"]
+# 1. 复制启动脚本到工作目录
+COPY entrypoint.sh .
+
+# 2. 赋予脚本执行权限
+RUN chmod +x entrypoint.sh
+
+# 3. 将 CMD 修改为执行这个脚本
+CMD ["./entrypoint.sh"]
